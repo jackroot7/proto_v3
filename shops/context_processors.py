@@ -4,12 +4,19 @@ from django.utils import timezone
 
 def current_shop(request):
     if not request.user.is_authenticated:
-        # Sync badge count
-    from sync_engine.models import SyncQueue
-    pending_sync_count = SyncQueue.objects.filter(status='pending').count()
+        return {}
+
+    # Sync badge count
+    try:
+        from sync_engine.models import SyncQueue
+        pending_sync_count = SyncQueue.objects.filter(status='pending').count()
+    except Exception:
+        pending_sync_count = 0
+
     shop_id = request.session.get('current_shop_id')
     if not shop_id:
-        return {}
+        return {'pending_sync_count': pending_sync_count}
+
     try:
         shop = Shop.objects.get(id=shop_id)
         today = timezone.now().date()
@@ -23,7 +30,7 @@ def current_shop(request):
             'day_session': day_session,
             'day_is_open': day_session.is_open if day_session else False,
             'all_accessible_shops': all_shops,
-            'pending_sync_count': pending_sync_count
+            'pending_sync_count': pending_sync_count,
         }
     except Shop.DoesNotExist:
-        return {}
+        return {'pending_sync_count': pending_sync_count}
