@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Sales Report{% endblock %}
+{% block page_title %}Reports - Sales{% endblock %}
+{% block extra_head %}<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+{% include "reports/_nav.html" %}
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">Total Revenue</div><div class="kpi-value">TSh {{ revenue|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Transactions</div><div class="kpi-value">{{ txn_count }}</div></div>
+  <div class="kpi"><div class="kpi-label">Avg Sale Value</div><div class="kpi-value">TSh {{ avg_sale|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Largest Sale</div><div class="kpi-value">TSh {{ max_sale|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Smallest Sale</div><div class="kpi-value">TSh {{ min_sale|floatformat:0 }}</div></div>
+</div>
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Daily revenue &amp; transaction count</div><div style="position:relative;height:140px;width:100%"><canvas id="daily-chart"></canvas></div></div>
+  <div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Sales by day of week</div><div style="position:relative;height:140px;width:100%"><canvas id="dow-chart"></canvas></div></div>
+</div>
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Hourly activity</div><div style="position:relative;height:100px;width:100%"><canvas id="hourly-chart"></canvas></div></div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px">Payment methods</div>
+    {% for p in pay_breakdown %}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f2;font-size:12px">
+      <span>{{ p.payment_method|title }}</span>
+      <span>{{ p.count }} sales - <strong>TSh {{ p.total|floatformat:0 }}</strong></span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px">Recent transactions</div>
+  <div class="table-wrap">
+    <table><thead><tr><th>Sale #</th><th>Date/Time</th><th>Customer</th><th>Payment</th><th>Total</th></tr></thead>
+    <tbody>{% for s in recent %}<tr><td><a href="/pos/sale/{{ s.id }}/receipt/" target="_blank" style="color:#6146c1;text-decoration:none">{{ s.sale_number }}</a></td><td style="font-size:12px;color:#6b6b80">{{ s.created_at|date:"d M H:i" }}</td><td>{{ s.customer.name|default:"Walk-in" }}</td><td><span class="badge badge-{% if s.payment_method == 'cash' %}gray{% elif s.payment_method == 'mpesa' %}green{% else %}amber{% endif %}">{{ s.get_payment_method_display }}</span></td><td style="font-weight:500">TSh {{ s.total|floatformat:0 }}</td></tr>{% empty %}<tr><td colspan="5" style="text-align:center;padding:20px;color:#6b6b80">No transactions in this period.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+<script>
+const series = {{ series|safe }};
+const hourly = {{ hourly|safe }};
+const dow = {{ dow|safe }};
+const dowRev = {{ dow_rev|safe }};
+const dowLabels = {{ dow_labels|safe }};
+new Chart(document.getElementById('daily-chart'),{type:'bar',data:{labels:series.map(d=>d.date),datasets:[{label:'Revenue',data:series.map(d=>d.revenue),backgroundColor:'#6146c1',borderRadius:3,yAxisID:'y'},{label:'Sales',data:series.map(d=>d.count),backgroundColor:'#EB5993',borderRadius:3,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:10}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'TSh '+Math.round(v).toLocaleString(),font:{size:9}}},y2:{position:'right',beginAtZero:true,grid:{drawOnChartArea:false},ticks:{font:{size:9}}},x:{ticks:{font:{size:9}}}}}});
+new Chart(document.getElementById('dow-chart'),{type:'bar',data:{labels:dowLabels,datasets:[{label:'Revenue',data:dowRev,backgroundColor:'#0D512B',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'TSh '+Math.round(v).toLocaleString(),font:{size:9}}},x:{ticks:{font:{size:10}}}}}});
+new Chart(document.getElementById('hourly-chart'),{type:'bar',data:{labels:Array.from({length:24},(_,i)=>i+':00'),datasets:[{data:hourly,backgroundColor:'rgba(97,70,193,0.7)',borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{font:{size:9}}},x:{ticks:{font:{size:8}}}}}});
+</script>
+{% endblock %}

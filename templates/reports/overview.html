@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Overview Report{% endblock %}
+{% block page_title %}Reports - Overview{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+{% include "reports/_nav.html" %}
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">Revenue</div><div class="kpi-value">TSh {{ revenue|floatformat:0 }}</div><div class="kpi-sub">{{ transaction_count }} transactions</div></div>
+  <div class="kpi"><div class="kpi-label">Gross Profit</div><div class="kpi-value" style="color:{% if gross >= 0 %}#0D512B{% else %}#9b2626{% endif %}">TSh {{ gross|floatformat:0 }}</div><div class="kpi-sub">{{ margin }}% margin</div></div>
+  <div class="kpi"><div class="kpi-label">Net Profit</div><div class="kpi-value" style="color:{% if net >= 0 %}#0D512B{% else %}#9b2626{% endif %}">TSh {{ net|floatformat:0 }}</div><div class="kpi-sub">After all expenses</div></div>
+  <div class="kpi"><div class="kpi-label">Cost of Goods</div><div class="kpi-value">TSh {{ cogs|floatformat:0 }}</div><div class="kpi-sub">Buying cost of sold items</div></div>
+  <div class="kpi"><div class="kpi-label">Expenses</div><div class="kpi-value" style="color:#9b2626">TSh {{ expenses_total|floatformat:0 }}</div><div class="kpi-sub">Operating costs</div></div>
+  <div class="kpi"><div class="kpi-label">Tax Collected</div><div class="kpi-value">TSh {{ tax_collected|floatformat:0 }}</div><div class="kpi-sub">VAT / GST</div></div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Revenue trend</div>
+    <div style="position:relative;height:140px;width:100%"><canvas id="rev-chart"></canvas></div>
+  </div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Payment breakdown</div>
+    {% with total_pay=cash|add:mpesa|add:credit %}
+    {% for label,val,color in payment_rows %}
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:50%;background:{{ color }};display:inline-block"></span>{{ label }}</span>
+        <span style="font-weight:500">TSh {{ val|floatformat:0 }}</span>
+      </div>
+      <div style="height:5px;background:#f0f0f2;border-radius:3px">
+        <div style="height:100%;background:{{ color }};border-radius:3px;width:{% if total_pay > 0 %}{% widthratio val total_pay 100 %}{% else %}0{% endif %}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endwith %}
+    {% if best_day %}<div style="margin-top:14px;background:#e8f5ee;border-radius:7px;padding:9px 12px;font-size:12px"><strong style="color:#0a3d1f">Best day:</strong> {{ best_day.date }} - TSh {{ best_day.revenue|floatformat:0 }}</div>{% endif %}
+  </div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Top products by quantity</div>
+    {% for p in top_products %}<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f2;font-size:12px"><span>{{ p.product__name }}</span><span style="color:#6b6b80">{{ p.qty }} sold - TSh {{ p.rev|floatformat:0 }}</span></div>{% empty %}<p style="color:#6b6b80;font-size:12px">No sales in this period.</p>{% endfor %}
+  </div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Expenses by category</div>
+    {% for e in exp_by_cat %}<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f2;font-size:12px"><span>{{ e.category__name|default:"Uncategorised" }}</span><span style="font-weight:500;color:#9b2626">TSh {{ e.t|floatformat:0 }}</span></div>{% empty %}<p style="color:#6b6b80;font-size:12px">No expenses in this period.</p>{% endfor %}
+  </div>
+</div>
+<script>
+const s = {{ series|safe }};
+new Chart(document.getElementById('rev-chart'), {
+  type:'bar',
+  data:{ labels:s.map(d=>d.date), datasets:[{data:s.map(d=>d.revenue),backgroundColor:'#6146c1',borderRadius:3}] },
+  options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{callback:v=>'TSh '+Math.round(v).toLocaleString()}},x:{ticks:{font:{size:10}}}}, responsive:true, maintainAspectRatio:false }
+});
+</script>
+{% endblock %}

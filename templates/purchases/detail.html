@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}{{ order.order_number }}{% endblock %}
+{% block page_title %}{{ order.order_number }}{% endblock %}
+{% block topbar_actions %}
+  {% if order.can_confirm %}
+    <form method="post" action="{% url 'purchases:confirm' order.pk %}" style="display:inline">{% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-sm">Confirm &amp; Send</button></form>
+  {% endif %}
+  {% if order.status == 'confirmed' %}
+    <form method="post" action="{% url 'purchases:in_transit' order.pk %}" style="display:inline">{% csrf_token %}
+      <button type="submit" class="btn btn-outline btn-sm">Mark In Transit</button></form>
+  {% endif %}
+  {% if order.can_mark_arrived %}
+    <form method="post" action="{% url 'purchases:arrived' order.pk %}" style="display:inline">{% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm">Mark Arrived &rarr; Inspect</button></form>
+  {% endif %}
+  {% if order.can_receive %}
+    <a href="{% url 'purchases:inspect' order.pk %}" class="btn btn-primary btn-sm">Open Inspection</a>
+  {% endif %}
+  {% if order.status != 'received' and order.status != 'cancelled' %}
+    <form method="post" action="{% url 'purchases:cancel' order.pk %}" style="display:inline"
+          onsubmit="return confirmCancel({{ order.pk }})">
+      {% csrf_token %}
+      <input type="hidden" name="confirm_stock_reversal" id="confirm-reversal-{{ order.pk }}" value="no">
+      <button type="submit" class="btn btn-outline btn-sm" style="color:#9b2626;border-color:#f5b0b0">Cancel Order</button>
+    </form>
+  {% endif %}
+  <a href="{% url 'purchases:list' %}" class="btn btn-outline btn-sm">&#8592; Back</a>
+{% endblock %}
+{% block content %}
+
+<div class="card" style="margin-bottom:16px;padding:14px 20px">
+  <div style="display:flex;align-items:center;gap:0;overflow-x:auto">
+    {% for step_info in steps_display %}
+    <div style="display:flex;align-items:center;flex-shrink:0">
+      <div style="text-align:center">
+        <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;margin:0 auto 4px;background:{{ step_info.bg }};color:{{ step_info.color }}">
+          {{ step_info.num }}
+        </div>
+        <div style="font-size:10px;color:#6b6b80">{{ step_info.label }}</div>
+      </div>
+      {% if not forloop.last %}<div style="width:36px;height:2px;background:#e4e4ec;margin:0 4px 18px"></div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Order Details</div>
+    <table>
+      <tr><td style="color:#6b6b80;width:130px">Order #</td><td style="font-weight:600">{{ order.order_number }}</td></tr>
+      <tr><td style="color:#6b6b80">Supplier</td><td style="font-weight:500">{{ order.supplier.name }}{% if order.supplier.phone %} &mdash; {{ order.supplier.phone }}{% endif %}</td></tr>
+      <tr><td style="color:#6b6b80">Status</td><td>
+        {% if order.status == 'received' %}<span class="badge badge-green">Fully Received</span>
+        {% elif order.status == 'partial' %}<span class="badge badge-amber">Partial Receipt</span>
+        {% elif order.status == 'arrived' %}<span class="badge badge-purple">Arrived &mdash; Inspect</span>
+        {% elif order.status == 'in_transit' %}<span class="badge badge-amber">In Transit</span>
+        {% elif order.status == 'confirmed' %}<span class="badge badge-purple">Confirmed</span>
+        {% elif order.status == 'cancelled' %}<span class="badge badge-red">Cancelled</span>
+        {% else %}<span class="badge badge-gray">Draft</span>{% endif %}
+      </td></tr>
+      <tr><td style="color:#6b6b80">Order Date</td><td>{{ order.order_date }}</td></tr>
+      <tr><td style="color:#6b6b80">Expected</td><td>{{ order.expected_date|default:"&#8212;" }}</td></tr>
+      {% if order.arrived_date %}<tr><td style="color:#6b6b80">Arrived</td><td>{{ order.arrived_date }}</td></tr>{% endif %}
+      {% if order.received_date %}<tr><td style="color:#6b6b80">Received</td><td>{{ order.received_date }}</td></tr>{% endif %}
+      {% if order.notes %}<tr><td style="color:#6b6b80">Notes</td><td style="font-size:12px">{{ order.notes }}</td></tr>{% endif %}
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Summary</div>
+    <div style="font-size:28px;font-weight:700;color:#6146c1;margin-bottom:4px">TSh {{ order.total|floatformat:0 }}</div>
+    <div style="font-size:13px;color:#6b6b80;margin-bottom:14px">{{ order.items_count }} product line(s)</div>
+    {% if order.receive_progress > 0 %}
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:#6b6b80">Receipt progress</span><span style="font-weight:500">{{ order.receive_progress }}%</span>
+      </div>
+      <div style="height:8px;background:#f0f0f2;border-radius:4px">
+        <div style="height:100%;background:#0D512B;border-radius:4px;width:{{ order.receive_progress }}%"></div>
+      </div>
+    </div>
+    {% endif %}
+    {% if order.created_by %}<div style="font-size:12px;color:#6b6b80">Created by {{ order.created_by.get_full_name|default:order.created_by.username }}</div>{% endif %}
+    {% if order.received_by %}<div style="font-size:12px;color:#6b6b80;margin-top:2px">Received by {{ order.received_by.get_full_name|default:order.received_by.username }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Order Items
+    {% if order.is_editable %}
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('add-item-form').style.display='block'">+ Add Item</button>
+    {% endif %}
+  </div>
+  {% if order.is_editable %}
+  <div id="add-item-form" style="display:none;background:#f7f7f8;border-radius:8px;padding:14px;margin-bottom:14px;border:1px solid #e4e4ec">
+    <form method="post" action="{% url 'purchases:add_item' order.pk %}">
+      {% csrf_token %}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:2;min-width:150px">
+          <label style="font-size:11px;color:#6b6b80;display:block;margin-bottom:3px">Product</label>
+          <select name="product_id" required id="add-product-sel" onchange="loadAddVariants(this)">
+            <option value="">&#8212; Select &#8212;</option>
+            {% for p in shop.products.all %}
+            <option value="{{ p.id }}" data-price="{{ p.buying_price }}" data-variants="{{ p.has_variants|yesno:'true,false' }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="flex:1;min-width:110px">
+          <label style="font-size:11px;color:#6b6b80;display:block;margin-bottom:3px">Variant</label>
+          <select name="variant_id" id="add-variant-sel" disabled><option value="">No variant</option></select>
+        </div>
+        <div style="width:70px"><label style="font-size:11px;color:#6b6b80;display:block;margin-bottom:3px">Qty</label>
+          <input type="number" name="quantity" value="1" min="1" required></div>
+        <div style="width:110px"><label style="font-size:11px;color:#6b6b80;display:block;margin-bottom:3px">Unit Cost (TSh)</label>
+          <input type="number" name="unit_cost" id="add-cost" required placeholder="0"></div>
+        <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('add-item-form').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Product</th><th>UOM</th><th>Variant</th><th>Ordered</th><th>Received</th><th>Rejected</th><th>Pending</th><th>Unit Cost</th><th>Line Total</th>{% if order.is_editable %}<th></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td style="font-weight:500">{{ item.product.name }}</td>
+          <td>{% if item.product.uom %}<span class="badge badge-purple">{{ item.product.uom.short_name }}</span>{% else %}<span style="color:#6b6b80">-</span>{% endif %}</td>
+          <td style="font-size:12px;color:#6b6b80">{% if item.variant %}{% for a in item.variant.attributes.all %}<span class="badge badge-purple" style="margin-right:3px">{{ a.value }}</span>{% endfor %}{% else %}&#8212;{% endif %}</td>
+          <td style="font-weight:500">{{ item.quantity_ordered }}</td>
+          <td style="color:#0D512B;font-weight:{% if item.quantity_received > 0 %}600{% else %}400{% endif %}">{{ item.quantity_received }}</td>
+          <td style="color:{% if item.quantity_rejected > 0 %}#9b2626{% else %}#6b6b80{% endif %}">{{ item.quantity_rejected }}</td>
+          <td style="color:#e67e22;font-weight:{% if item.quantity_pending > 0 %}500{% else %}400{% endif %}">{{ item.quantity_pending }}</td>
+          <td>TSh {{ item.unit_cost|floatformat:0 }}</td>
+          <td style="font-weight:500">TSh {{ item.line_total|floatformat:0 }}</td>
+          {% if order.is_editable %}
+          <td>
+            <form method="post" action="{% url 'purchases:remove_item' order.pk item.pk %}" style="display:inline" onsubmit="return confirm('Remove this item?')">
+              {% csrf_token %}<button type="submit" style="background:none;border:none;color:#9b2626;cursor:pointer;font-size:14px">&#10005;</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;padding:20px;color:#6b6b80">No items yet.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if items %}
+      <tfoot>
+        <tr><td colspan="7" style="padding:10px;font-weight:600;text-align:right;border-top:2px solid #e4e4ec">Total</td>
+            <td style="padding:10px;font-weight:700;font-size:15px;color:#6146c1;border-top:2px solid #e4e4ec">TSh {{ order.total|floatformat:0 }}</td>
+            {% if order.is_editable %}<td style="border-top:2px solid #e4e4ec"></td>{% endif %}</tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+<script>
+function loadAddVariants(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const costEl = document.getElementById('add-cost');
+  if (opt.dataset.price) costEl.value = opt.dataset.price;
+  const variantSel = document.getElementById('add-variant-sel');
+  if (opt.dataset.variants === 'true' && sel.value) {
+    variantSel.disabled = false;
+    fetch('/purchases/api/product/' + sel.value + '/variants/')
+      .then(r => r.json()).then(data => {
+        variantSel.innerHTML = '<option value="">&#8212; No variant &#8212;</option>' +
+          data.variants.map(v => '<option value="' + v.id + '" data-price="' + v.buying_price + '">' + v.label + '</option>').join('');
+        variantSel.onchange = function() {
+          const vopt = variantSel.options[variantSel.selectedIndex];
+          if (vopt.dataset.price) costEl.value = vopt.dataset.price;
+        };
+      });
+  } else { variantSel.innerHTML = '<option value="">No variant</option>'; variantSel.disabled = true; }
+}
+
+function confirmCancel(pk) {
+  const receivedUnits = {{ total_received }};
+  if (receivedUnits > 0) {
+    const ok = confirm(
+      'WARNING: ' + receivedUnits + ' unit(s) from this order have already been received and added to stock.\n\n' +
+      'Cancelling will REMOVE those units from stock.\n\n' +
+      'Are you sure you want to cancel and reverse the stock?'
+    );
+    if (ok) {
+      document.getElementById('confirm-reversal-' + pk).value = 'yes';
+    }
+    return ok;
+  }
+  return confirm('Cancel this order?');
+}
+</script>
+{% endblock %}

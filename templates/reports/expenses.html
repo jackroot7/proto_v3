@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Expense Analysis{% endblock %}
+{% block page_title %}Reports - Expenses{% endblock %}
+{% block extra_head %}<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+{% include "reports/_nav.html" %}
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">Total Expenses</div><div class="kpi-value" style="color:#9b2626">TSh {{ total|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Expense Count</div><div class="kpi-value">{{ count }}</div></div>
+  <div class="kpi"><div class="kpi-label">Avg per Entry</div><div class="kpi-value">TSh {{ avg|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Largest Expense</div><div class="kpi-value">TSh {{ max_e|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">As % of Revenue</div><div class="kpi-value" style="color:{% if exp_ratio > 50 %}#9b2626{% else %}#e67e22{% endif %}">{{ exp_ratio }}%</div><div class="kpi-sub">{{ revenue|floatformat:0 }} revenue</div></div>
+</div>
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Daily expenses</div><div style="position:relative;height:140px;width:100%"><canvas id="daily-chart"></canvas></div></div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px">By category</div>
+    <div style="position:relative;height:140px;width:100%"><canvas id="cat-chart"></canvas></div>
+    <div style="margin-top:12px">
+    {% for c in by_cat %}
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f2;font-size:12px">
+      <span>{{ c.category__name|default:"Uncategorised" }}</span>
+      <span><strong style="color:#9b2626">TSh {{ c.total|floatformat:0 }}</strong> <span style="color:#6b6b80">({{ c.count }})</span></span>
+    </div>{% endfor %}
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px">All expenses</div>
+  <div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Description</th></tr></thead>
+  <tbody>{% for e in recent_expenses %}<tr><td style="font-size:12px;color:#6b6b80">{{ e.date }}</td><td><span class="badge badge-amber">{{ e.category.name|default:"-" }}</span></td><td style="font-weight:500;color:#9b2626">TSh {{ e.amount|floatformat:0 }}</td><td style="font-size:12px;color:#6b6b80">{{ e.description|default:"-" }}</td></tr>{% empty %}<tr><td colspan="4" style="text-align:center;padding:20px;color:#6b6b80">No expenses in this period.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+<script>
+const s = {{ series|safe }};
+const catD = {{ by_cat_json|safe }};
+const colors = ['#9b2626','#e67e22','#f9c74f','#6146c1','#0D512B','#EB5993','#185fa5'];
+new Chart(document.getElementById('daily-chart'),{type:'bar',data:{labels:s.map(d=>d.date),datasets:[{data:s.map(d=>d.amount),backgroundColor:'#e67e22',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'TSh '+Math.round(v).toLocaleString(),font:{size:9}}},x:{ticks:{font:{size:9}}}}}});
+new Chart(document.getElementById('cat-chart'),{type:'doughnut',data:{labels:catD.map(d=>d.cat),datasets:[{data:catD.map(d=>d.amount),backgroundColor:colors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+</script>
+{% endblock %}

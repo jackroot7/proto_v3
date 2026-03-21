@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block page_title %}{{ product.name }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'products:edit' product.pk %}" class="btn btn-outline btn-sm">Edit Product</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Product Details</div>
+    <table>
+      <tr><td style="color:#6b6b80;width:140px">SKU</td><td><code>{{ product.sku }}</code></td></tr>
+      <tr><td style="color:#6b6b80">Category</td><td>{{ product.category.name|default:"-" }}</td></tr>
+      <tr><td style="color:#6b6b80">Unit of Measure</td><td>{% if product.uom %}<span class="badge badge-purple">{{ product.uom.name }}</span> <span style="color:#6b6b80;font-size:12px">({{ product.uom.short_name }})</span>{% else %}<span style="color:#6b6b80">Not set - <a href="{% url 'products:edit' product.pk %}">set one</a></span>{% endif %}</td></tr>
+      <tr><td style="color:#6b6b80">Shop</td><td>{{ product.shop.name }}</td></tr>
+      <tr><td style="color:#6b6b80">Selling price</td><td style="font-weight:500;color:#6146c1">TSh {{ product.selling_price|floatformat:0 }}</td></tr>
+      <tr><td style="color:#6b6b80">Buying price</td><td>TSh {{ product.buying_price|floatformat:0 }}</td></tr>
+      <tr><td style="color:#6b6b80">Profit margin</td><td style="color:#0D512B;font-weight:500">{{ product.profit_margin|floatformat:1 }}%</td></tr>
+      <tr><td style="color:#6b6b80">Tax inclusive</td><td>{% if product.tax_inclusive %}Yes{% else %}No{% endif %}</td></tr>
+      <tr><td style="color:#6b6b80">Low stock alert</td><td>{{ product.low_stock_threshold }} units</td></tr>
+      <tr><td style="color:#6b6b80">Description</td><td style="font-size:12px">{{ product.description|default:"-" }}</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Current Stock</div>
+    {% for s in stock %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #e4e4ec;font-size:13px">
+      <span>{% if s.variant %}{{ s.variant }}{% else %}Default stock{% endif %}</span>
+      <span style="font-weight:600" class="{% if s.is_critical %}stock-critical{% elif s.is_low %}stock-warning{% else %}stock-good{% endif %}">
+        {{ s.quantity }} units
+      </span>
+    </div>
+    {% empty %}
+    <p style="color:#6b6b80;font-size:13px;padding:8px 0">No stock records yet.</p>
+    {% endfor %}
+    <div style="margin-top:12px">
+      <a href="{% url 'stock:adjust' product.pk %}" class="btn btn-outline btn-sm">Adjust Stock</a>
+    </div>
+  </div>
+</div>
+
+{% if product.has_variants %}
+<div class="card">
+  <div class="card-title">
+    Product Variants
+    <a href="{% url 'products:variants' product.pk %}" class="btn btn-primary btn-sm">Manage Variants</a>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Variant</th><th>SKU</th><th>Sell Price</th><th>Stock</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for v in variants %}
+        <tr>
+          <td>
+            {% for a in v.attributes.all %}
+              <span class="badge badge-purple" style="margin-right:4px">{{ a.variant_type.name }}: {{ a.value }}</span>
+            {% endfor %}
+          </td>
+          <td><code style="font-size:11px;color:#6b6b80">{{ v.sku }}</code></td>
+          <td>
+            {% if v.selling_price %}
+              <span style="color:#6146c1;font-weight:500">TSh {{ v.selling_price|floatformat:0 }}</span>
+            {% else %}
+              <span style="color:#6b6b80;font-size:12px">Uses base (TSh {{ product.selling_price|floatformat:0 }})</span>
+            {% endif %}
+          </td>
+          <td>
+            {% for s in stock %}{% if s.variant_id == v.pk %}
+              <span style="font-weight:600;{% if s.is_critical %}color:#9b2626{% elif s.is_low %}color:#e67e22{% else %}color:#0D512B{% endif %}">{{ s.quantity }}</span>
+            {% endif %}{% endfor %}
+          </td>
+          <td>{% if v.is_active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Inactive</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" style="color:#6b6b80;padding:16px">
+            No variants yet.
+            <a href="{% url 'products:variants' product.pk %}">Add variants</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-title">Variants</div>
+  <p style="color:#6b6b80;font-size:13px;margin-bottom:12px">
+    This product has no variants. Add variants if it comes in different colours, sizes or volumes.
+  </p>
+  <a href="{% url 'products:variants' product.pk %}" class="btn btn-outline btn-sm">+ Add Variants</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Recent Stock Movements</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Type</th><th>Qty Change</th><th>Before</th><th>After</th><th>Reference</th><th>By</th></tr></thead>
+      <tbody>
+        {% for m in movements %}
+        <tr>
+          <td style="color:#6b6b80;font-size:12px;white-space:nowrap">{{ m.created_at|date:"d M Y H:i" }}</td>
+          <td>
+            <span class="badge {% if m.movement_type == 'sale' %}badge-pink{% elif m.movement_type == 'purchase' %}badge-green{% else %}badge-gray{% endif %}">
+              {{ m.get_movement_type_display }}
+            </span>
+          </td>
+          <td style="font-weight:500;{% if m.quantity < 0 %}color:#9b2626{% else %}color:#0D512B{% endif %}">
+            {% if m.quantity > 0 %}+{% endif %}{{ m.quantity }}
+          </td>
+          <td style="color:#6b6b80">{{ m.quantity_before }}</td>
+          <td style="color:#6b6b80">{{ m.quantity_after }}</td>
+          <td style="font-size:12px;color:#6b6b80">{{ m.reference|default:"-" }}</td>
+          <td style="font-size:12px">{{ m.created_by.get_full_name|default:m.created_by.username|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="color:#6b6b80;padding:16px">No stock movements recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

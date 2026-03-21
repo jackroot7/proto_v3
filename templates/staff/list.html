@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Staff{% endblock %}
+{% block page_title %}Staff Management{% endblock %}
+{% block topbar_actions %}<a href="{% url 'staff:create' %}" class="btn btn-primary btn-sm">+ Add Staff</a>{% endblock %}
+{% block content %}
+<div class="stats-grid cols-3">
+  <div class="stat-card"><div class="stat-label">Total Staff</div><div class="stat-value">{{ staff.count }}</div></div>
+  <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value">{{ staff|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Monthly Payroll</div><div class="stat-value">TSh {% for s in staff %}{{ s.monthly_salary|floatformat:0 }}{% endfor %}</div></div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Hire Date</th><th>Salary</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for s in staff %}
+        <tr>
+          <td><div style="font-weight:500">{{ s.user.get_full_name|default:s.user.username }}</div><div style="font-size:11px;color:#6b6b80">@{{ s.user.username }}</div></td>
+          <td><span class="badge {% if s.role == 'owner' %}badge-purple{% elif s.role == 'admin' %}badge-amber{% else %}badge-gray{% endif %}">{{ s.get_role_display }}</span></td>
+          <td style="color:#6b6b80">{{ s.phone|default:"-" }}</td>
+          <td style="color:#6b6b80;font-size:12px">{{ s.hire_date }}</td>
+          <td>TSh {{ s.monthly_salary|floatformat:0 }}</td>
+          <td>{% if s.status == 'active' %}<span class="badge badge-green">Active</span>{% elif s.status == 'on_leave' %}<span class="badge badge-amber">On Leave</span>{% else %}<span class="badge badge-red">{{ s.get_status_display }}</span>{% endif %}</td>
+          <td><a href="{% url 'staff:detail' s.pk %}" class="btn btn-outline btn-sm">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;padding:28px;color:#6b6b80">No staff added yet. <a href="{% url 'staff:create' %}">Add staff</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

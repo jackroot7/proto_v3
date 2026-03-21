@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+{% block title %}Point of Sale{% endblock %}
+{% block page_title %}Point of Sale{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'pos:history' %}" class="btn btn-outline btn-sm">Today's Sales</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.pos-wrap{display:grid;grid-template-columns:1fr 320px;gap:14px;height:calc(100vh - 90px)}
+.pos-left{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.pos-filter-bar{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.pos-filter-bar input{flex:1;padding:6px 10px;font-size:12px}
+.pos-filter-bar select{width:130px;padding:6px 10px;font-size:12px}
+.pos-cat-pills{display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0}
+.pos-cat-pills a{padding:3px 10px;border-radius:20px;font-size:11px;border:1px solid #e4e4ec;color:#6b6b80;text-decoration:none;background:#fff;white-space:nowrap}
+.pos-cat-pills a.on{background:#6146c1;color:#fff;border-color:#6146c1}
+.view-toggle{display:flex;border:1px solid #e4e4ec;border-radius:6px;overflow:hidden;flex-shrink:0}
+.view-toggle button{padding:5px 10px;border:none;background:#fff;cursor:pointer;font-size:14px;color:#6b6b80}
+.view-toggle button.on{background:#6146c1;color:#fff}
+.pos-products{flex:1;overflow-y:auto}
+.pos-products::-webkit-scrollbar{width:3px}
+.pos-products::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
+/* Grid view */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px}
+.pgrid .pcard{background:#fff;border:1px solid #e4e4ec;border-radius:8px;padding:8px;cursor:pointer;transition:border-color .1s}
+.pgrid .pcard:hover{border-color:#6146c1}
+.pgrid .pcard.oos{opacity:.5;cursor:not-allowed}
+.pgrid .pcard .pc-img{width:100%;aspect-ratio:1;background:#f7f7f8;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px}
+.pgrid .pcard .pc-name{font-size:11px;font-weight:500;color:#1a1a2e;margin-bottom:2px;line-height:1.3}
+.pgrid .pcard .pc-cat{font-size:10px;color:#6b6b80;margin-bottom:2px}
+.pgrid .pcard .pc-price{font-size:12px;color:#6146c1;font-weight:600}
+.pgrid .pcard .pc-stock{font-size:10px;color:#6b6b80;margin-top:1px}
+.pgrid .pcard .pc-stock.low{color:#9b2626;font-weight:500}
+.pgrid .pcard .vchips{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.pgrid .pcard .vchip{font-size:9px;padding:2px 6px;border-radius:3px;background:#f0edfb;color:#3d2a8f;cursor:pointer;border:1px solid #c4b8f0}
+.pgrid .pcard .vchip:hover{background:#6146c1;color:#fff}
+/* List view */
+.plist{display:flex;flex-direction:column;gap:3px}
+.plist .pcard{background:#fff;border:1px solid #e4e4ec;border-radius:6px;padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border-color .1s}
+.plist .pcard:hover{border-color:#6146c1;background:#faf9fe}
+.plist .pcard.oos{opacity:.5;cursor:not-allowed}
+.plist .pcard .pc-img{width:32px;height:32px;background:#f7f7f8;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.plist .pcard .pc-name{font-size:12px;font-weight:500;flex:1}
+.plist .pcard .pc-cat{font-size:10px;color:#6b6b80}
+.plist .pcard .pc-price{font-size:13px;color:#6146c1;font-weight:600;flex-shrink:0}
+.plist .pcard .pc-stock{font-size:10px;color:#6b6b80;flex-shrink:0;min-width:60px;text-align:right}
+.plist .pcard .pc-stock.low{color:#9b2626;font-weight:500}
+.plist .pcard .vchips{display:flex;gap:4px;flex-wrap:wrap;margin-left:4px}
+.plist .pcard .vchip{font-size:10px;padding:2px 8px;border-radius:3px;background:#f0edfb;color:#3d2a8f;cursor:pointer;border:1px solid #c4b8f0}
+.plist .pcard .vchip:hover{background:#6146c1;color:#fff}
+/* Cart */
+.cart-panel{background:#fff;border:1px solid #e4e4ec;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.cart-header{padding:11px 14px;border-bottom:1px solid #e4e4ec;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.cart-customer{padding:6px 10px;border-bottom:1px solid #e4e4ec}
+.cart-customer select{font-size:12px;padding:5px 8px;width:100%}
+.cart-body{flex:1;overflow-y:auto;padding:5px}
+.cart-body::-webkit-scrollbar{width:0}
+.cart-item{display:flex;align-items:center;gap:6px;padding:6px;border-radius:5px}
+.cart-item:hover{background:#f7f7f8}
+.cart-item-name{flex:1;font-size:11px;line-height:1.3}
+.cart-item-name .ci-variant{font-size:10px;color:#6b6b80}
+.qty-ctrl{display:flex;align-items:center;gap:2px}
+.qty-btn{width:20px;height:20px;border-radius:3px;background:#f0f0f2;border:1px solid #e4e4ec;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;color:#1a1a2e;user-select:none}
+.qty-num{width:18px;text-align:center;font-size:11px}
+.ci-price{font-size:11px;font-weight:500;min-width:52px;text-align:right}
+.cart-footer{padding:11px 14px;border-top:1px solid #e4e4ec}
+.ctrow{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.ctrow.grand{font-size:15px;font-weight:600;border-top:1px solid #e4e4ec;padding-top:7px;margin-top:2px}
+.pay-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin:8px 0 10px}
+.pay-opt{padding:6px 4px;border:1px solid #e4e4ec;border-radius:5px;text-align:center;cursor:pointer;font-size:11px;color:#6b6b80;user-select:none}
+.pay-opt.on{border-color:#6146c1;color:#3d2a8f;background:#f0edfb}
+.checkout-btn{width:100%;background:#0D512B;color:#fff;border:none;border-radius:7px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
+.checkout-btn:hover:not(:disabled){background:#0a3d1f}
+.checkout-btn:disabled{opacity:.5;cursor:not-allowed}
+/* Receipt modal */
+#receipt-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;z-index:1000;overflow-y:auto}
+#receipt-modal.on{display:flex}
+.receipt-box{background:#fff;border-radius:3px;padding:24px;max-width:310px;width:100%;font-family:'Courier New',Courier,monospace;box-shadow:0 8px 40px rgba(0,0,0,0.35)}
+.receipt-actions{display:flex;gap:8px;margin-top:16px}
+.receipt-actions button{flex:1;padding:9px;border-radius:6px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not day_is_open %}
+<div class="alert alert-danger" style="margin-bottom:10px">
+  Day is not open.
+  <a href="#" onclick="showOpenDayModal();return false;" style="font-weight:600">Open the day</a> before making sales.
+</div>
+{% endif %}
+
+<div class="pos-wrap">
+  <!-- LEFT: Products -->
+  <div class="pos-left">
+    <div class="pos-filter-bar">
+      <form method="get" style="display:contents">
+        <input type="search" name="q" value="{{ search }}" placeholder="Search products..." id="pos-search">
+        <select name="category" onchange="this.form.submit()">
+          <option value="">All categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.slug }}" {% if selected_category == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline btn-sm">Go</button>
+      </form>
+      <div class="view-toggle">
+        <button id="btn-view-grid" class="on" title="Grid">⊞</button>
+        <button id="btn-view-list" title="List">☰</button>
+      </div>
+    </div>
+
+    <div class="pos-cat-pills">
+      <a href="{% url 'pos:index' %}{% if search %}?q={{ search }}{% endif %}" class="{% if not selected_category %}on{% endif %}">All</a>
+      {% for cat in categories %}
+        <a href="{% url 'pos:index' %}?category={{ cat.slug }}{% if search %}&q={{ search }}{% endif %}"
+           class="{% if selected_category == cat.slug %}on{% endif %}">{{ cat.name }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="pos-products">
+      <div class="pgrid" id="product-container">
+        {% for item in product_data %}
+        {% with p=item.product %}
+        {% if p.has_variants %}
+        <div class="pcard {% if item.stock == 0 and not shop_settings.allow_negative_stock %}oos{% endif %}">
+          <div class="pc-img">{% if p.image %}<img src="{{ p.image.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">{% elif p.category.slug == 'bags' or p.category.slug == 'handbags' %}👜{% elif 'hair' in p.category.slug %}💧{% elif 'home' in p.category.slug %}🏠{% elif 'wallet' in p.category.slug %}👛{% else %}📦{% endif %}</div>
+          <div class="pc-name">{{ p.name }}</div>
+          <div class="pc-cat">{{ p.category.name }}</div>
+          <div class="pc-price">TSh {{ p.selling_price|floatformat:0 }}</div>
+          <div class="pc-stock {% if item.is_critical %}low{% elif item.is_low %}low{% endif %}">{% if item.stock == 0 %}Out of stock{% elif item.is_critical %}{{ item.stock }} - critical{% elif item.is_low %}{{ item.stock }} - low{% else %}{{ item.stock }} in stock{% endif %}</div>
+          <div class="vchips">
+            {% for v in p.variants.all %}{% if v.is_active %}
+            <div class="vchip"
+                 data-pid="{{ p.id }}"
+                 data-name="{{ p.name|force_escape }}"
+                 data-price="{{ v.effective_selling_price }}"
+                 data-vid="{{ v.id }}"
+                 data-vlabel="{% for a in v.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}">
+              {% for a in v.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}
+            </div>
+            {% endif %}{% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="pcard {% if item.stock == 0 and not shop_settings.allow_negative_stock %}oos{% endif %}"
+             data-pid="{{ p.id }}"
+             data-name="{{ p.name|force_escape }}"
+             data-price="{{ p.selling_price }}"
+             data-can-sell="{% if item.stock > 0 or shop_settings.allow_negative_stock %}yes{% else %}no{% endif %}">
+          <div class="pc-img">{% if p.image %}<img src="{{ p.image.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">{% elif p.category.slug == 'bags' or p.category.slug == 'handbags' %}👜{% elif 'hair' in p.category.slug %}💧{% elif 'home' in p.category.slug %}🏠{% elif 'wallet' in p.category.slug %}👛{% else %}📦{% endif %}</div>
+          <div class="pc-name">{{ p.name }}</div>
+          <div class="pc-cat">{{ p.category.name }}</div>
+          <div class="pc-price">TSh {{ p.selling_price|floatformat:0 }}{% if p.uom %} <span style="font-size:9px;color:#6b6b80">/ {{ p.uom.short_name }}</span>{% endif %}</div>
+          <div class="pc-stock {% if item.is_critical %}low{% elif item.is_low %}low{% endif %}">{% if item.stock == 0 %}{% if shop_settings.allow_negative_stock %}Sell anyway{% else %}Out of stock{% endif %}{% elif item.is_critical %}{{ item.stock }}{% if p.uom %} {{ p.uom.short_name }}{% endif %} - critical{% elif item.is_low %}{{ item.stock }}{% if p.uom %} {{ p.uom.short_name }}{% endif %} - low{% else %}{{ item.stock }}{% if p.uom %} {{ p.uom.short_name }}{% endif %} in stock{% endif %}</div>
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% empty %}
+        <div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b6b80;font-size:13px">
+          No products found. <a href="{% url 'products:create' %}">Add a product</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Cart -->
+  <div class="cart-panel">
+    <div class="cart-header">Cart <span style="font-size:10px;color:#6b6b80;font-weight:400">New sale</span></div>
+    <div class="cart-customer">
+      <div style="display:flex;gap:5px;align-items:center">
+        <select id="cart-customer-id" style="flex:1">
+          <option value="">Walk-in customer</option>
+          {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.has_debt %} - ⚠ TSh {{ c.credit_balance|floatformat:0 }} debt{% endif %}</option>
+          {% endfor %}
+        </select>
+        <button type="button" id="btn-add-customer"
+                title="Add new customer"
+                style="flex-shrink:0;width:28px;height:28px;border-radius:5px;border:1px solid #c4b8f0;background:#f0edfb;color:#6146c1;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:600">+</button>
+      </div>
+    </div>
+
+    <!-- Quick-add customer modal (inline, no page leave) -->
+    <div id="quick-customer-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:12px;padding:24px;width:100%;max-width:380px;border:1px solid #e4e4ec">
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Add New Customer</div>
+        <div style="font-size:12px;color:#6b6b80;margin-bottom:18px">Customer will be saved and automatically selected.</div>
+
+        <div class="form-group">
+          <label>Name <span style="color:#9b2626">*</span></label>
+          <input type="text" id="qc-name" placeholder="Full name" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Phone number</label>
+          <input type="text" id="qc-phone" placeholder="e.g. 0712 345 678">
+        </div>
+        <div class="form-group">
+          <label>Notes <span style="font-size:10px;color:#6b6b80">(optional)</span></label>
+          <input type="text" id="qc-notes" placeholder="Any notes about this customer">
+        </div>
+
+        <div id="qc-error" style="display:none;background:#fdeaea;border:1px solid #f5b0b0;border-radius:6px;padding:8px 12px;font-size:12px;color:#7a1f1f;margin-bottom:12px"></div>
+
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button type="button" id="qc-cancel" class="btn btn-outline" style="flex:1">Cancel</button>
+          <button type="button" id="qc-save" class="btn btn-primary" style="flex:1">Save & Select</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cart-body" id="cart-items-list">
+      <div style="padding:20px;text-align:center;color:#6b6b80;font-size:12px">Tap a product to add it</div>
+    </div>
+    <div class="cart-footer">
+      <div class="ctrow"><span>Subtotal</span><span id="cart-subtotal">TSh 0</span></div>
+      <div class="ctrow" style="color:#6b6b80"><span>Tax ({{ shop_settings.tax_rate|floatformat:0 }}%)</span><span id="cart-tax">TSh 0</span></div>
+      <div class="ctrow grand"><span>Total</span><span id="cart-grand-total">TSh 0</span></div>
+      <div style="font-size:10px;color:#6b6b80;margin-bottom:4px">Payment method</div>
+      <div class="pay-row">
+        <div class="pay-opt on" id="pay-cash">Cash</div>
+        <div class="pay-opt" id="pay-mpesa">M-Pesa</div>
+        <div class="pay-opt" id="pay-credit">Credit</div>
+      </div>
+      <button class="checkout-btn" id="checkout-btn" {% if not day_is_open %}disabled{% endif %}>Complete Sale</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt modal -->
+<div id="receipt-modal">
+  <div class="receipt-box">
+    <div style="height:12px;background:repeating-radial-gradient(circle at 6px 12px,transparent 0,transparent 5px,#fff 5px,#fff 12px) -6px 0/12px 12px,repeating-radial-gradient(circle at 6px 0,#e0e0e0 0,#e0e0e0 5px,transparent 5px,transparent 12px) 0 0/12px 12px;margin:-24px -24px 14px"></div>
+    <div style="text-align:center;font-family:Arial,sans-serif;margin-bottom:4px">
+      <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:1px">{{ shop.name }}</div>
+      {% if shop_settings.receipt_header %}<div style="font-size:11px;color:#555;margin-top:2px">{{ shop_settings.receipt_header }}</div>{% endif %}
+    </div>
+    <div style="text-align:center;font-size:11px;letter-spacing:3px;color:#333;margin:8px 0">* * * * * * * * * * * * *</div>
+    <div style="text-align:center;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-family:Arial,sans-serif">Cash Receipt</div>
+    <div style="text-align:center;font-size:11px;letter-spacing:3px;color:#333;margin:8px 0">* * * * * * * * * * * * *</div>
+    <div style="font-size:11px;margin-bottom:8px;line-height:1.8">
+      <div style="display:flex;justify-content:space-between"><span>Sale #</span><span id="r-sale-num" style="font-weight:600">-</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Date/Time</span><span id="r-datetime">-</span></div>
+    </div>
+    <div style="text-align:center;font-size:11px;letter-spacing:3px;color:#333;margin:6px 0">* * * * * * * * * * * * *</div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:4px"><span>Description</span><span>Price</span></div>
+    <div id="r-items" style="font-size:12px"></div>
+    <div style="text-align:center;font-size:11px;letter-spacing:3px;color:#333;margin:8px 0">* * * * * * * * * * * * *</div>
+    <div style="font-family:'Courier New',monospace">
+      <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:900;font-family:Arial,sans-serif;margin-bottom:2px"><span>Total</span><span id="r-total">-</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span id="r-pay-label">Cash</span><span id="r-paid">-</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px" id="r-change-row"><span>Change</span><span id="r-change">-</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555"><span>Subtotal</span><span id="r-subtotal">-</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555" id="r-tax-row"><span>Tax ({{ shop_settings.tax_rate|floatformat:0 }}%)</span><span id="r-tax">-</span></div>
+    </div>
+    <div style="text-align:center;font-size:11px;letter-spacing:3px;color:#333;margin:8px 0">* * * * * * * * * * * * *</div>
+    <div style="text-align:center;font-size:13px;font-weight:900;letter-spacing:2px;text-transform:uppercase;font-family:Arial,sans-serif">Thank You!</div>
+    <div style="text-align:center;font-size:10px;color:#666;margin-top:3px">{{ shop_settings.receipt_footer|default:"Please come again" }}</div>
+    <div style="height:12px;background:repeating-radial-gradient(circle at 6px 0,transparent 0,transparent 5px,#fff 5px,#fff 12px) -6px 0/12px 12px,repeating-radial-gradient(circle at 6px 12px,#e0e0e0 0,#e0e0e0 5px,transparent 5px,transparent 12px) 0 0/12px 12px;margin:14px -24px -24px"></div>
+    <div class="receipt-actions" style="margin-top:20px">
+      <button id="btn-print-receipt" style="background:#1a1a2e;color:#fff;border:none">Print Receipt</button>
+      <button id="btn-new-sale" style="background:#f0f0f2;border:1px solid #e4e4ec;color:#1a1a2e">New Sale</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── POS Settings from Django ──────────────────
+const POS_TAX_RATE            = {{ shop_settings.tax_rate }} / 100;
+const REQUIRE_CUSTOMER_CREDIT = {{ shop_settings.require_customer_on_credit|yesno:"true,false" }};
+const ALLOW_NEGATIVE_STOCK    = {{ shop_settings.allow_negative_stock|yesno:"true,false" }};
+const AUTO_PRINT              = {{ shop_settings.print_receipt_auto|yesno:"true,false" }};
+const SHOW_TAX_ON_RECEIPT     = {{ shop_settings.show_tax_on_receipt|yesno:"true,false" }};
+const SHOP_NAME               = "{{ shop.name|escapejs }}";
+
+// ── Cart ──────────────────────────────────────
+let posCart = [];
+let posPayMethod = 'cash';
+let lastSaleId = null;
+
+function posAddToCart(pid, name, price, vid, vlabel) {
+  const key = vid ? pid + '-' + vid : String(pid);
+  const displayName = vlabel ? name + ' - ' + vlabel : name;
+  const existing = posCart.find(i => i.key === key);
+  if (existing) { existing.qty++; }
+  else { posCart.push({ key, pid, vid: vid || null, name: displayName, price: parseFloat(price), qty: 1 }); }
+  posRenderCart();
+  // Flash card
+  const card = document.querySelector('[data-pid="' + pid + '"]');
+  if (card) { card.style.borderColor = '#6146c1'; setTimeout(() => card.style.borderColor = '', 400); }
+}
+
+function posChangeQty(key, delta) {
+  const idx = posCart.findIndex(i => i.key === key);
+  if (idx === -1) return;
+  posCart[idx].qty += delta;
+  if (posCart[idx].qty <= 0) posCart.splice(idx, 1);
+  posRenderCart();
+}
+
+function posRenderCart() {
+  const el = document.getElementById('cart-items-list');
+  if (!el) return;
+  if (!posCart.length) {
+    el.innerHTML = '<div style="padding:18px;text-align:center;color:#6b6b80;font-size:12px">Tap a product to add it</div>';
+    posUpdateTotals();
+    return;
+  }
+  el.innerHTML = posCart.map(item => {
+    const parts = item.name.split(' - ');
+    const nameHtml = parts.length > 1
+      ? parts[0] + '<div class="ci-variant">' + parts.slice(1).join(' - ') + '</div>'
+      : item.name;
+    return '<div class="cart-item">' +
+      '<div class="cart-item-name">' + nameHtml + '</div>' +
+      '<div class="qty-ctrl">' +
+        '<div class="qty-btn" onclick="posChangeQty(\'' + item.key + '\',-1)">−</div>' +
+        '<div class="qty-num">' + item.qty + '</div>' +
+        '<div class="qty-btn" onclick="posChangeQty(\'' + item.key + '\',1)">+</div>' +
+      '</div>' +
+      '<div class="ci-price">TSh ' + posFmt(item.price * item.qty) + '</div>' +
+    '</div>';
+  }).join('');
+  posUpdateTotals();
+}
+
+function posUpdateTotals() {
+  const sub   = posCart.reduce((s, i) => s + i.price * i.qty, 0);
+  const tax   = Math.round(sub * POS_TAX_RATE);
+  const total = sub + tax;
+  const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  s('cart-subtotal',    'TSh ' + posFmt(sub));
+  s('cart-tax',         'TSh ' + posFmt(tax));
+  s('cart-grand-total', 'TSh ' + posFmt(total));
+}
+
+function posFmt(n) { return Math.round(n).toLocaleString(); }
+
+// ── Payment selection ─────────────────────────
+function posSelPay(method) {
+  posPayMethod = method;
+  ['cash','mpesa','credit'].forEach(m => {
+    const el = document.getElementById('pay-' + m);
+    if (el) el.classList.toggle('on', m === method);
+  });
+}
+
+// ── Complete sale ─────────────────────────────
+function posCompleteSale() {
+  if (!posCart.length) { posToast('Cart is empty.', 'warning'); return; }
+  const customerEl = document.getElementById('cart-customer-id');
+  const customerId = customerEl ? customerEl.value : '';
+  if (posPayMethod === 'credit' && REQUIRE_CUSTOMER_CREDIT && !customerId) {
+    posToast('Select a customer for credit sales.', 'danger');
+    if (customerEl) customerEl.focus();
+    return;
+  }
+  const sub   = posCart.reduce((s, i) => s + i.price * i.qty, 0);
+  const tax   = Math.round(sub * POS_TAX_RATE);
+  const total = sub + tax;
+  const btn   = document.getElementById('checkout-btn');
+  if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
+  fetch('/pos/sale/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': posGetCsrf() },
+    body: JSON.stringify({
+      items: posCart.map(i => ({ product_id: i.pid, variant_id: i.vid, quantity: i.qty })),
+      payment_method: posPayMethod,
+      amount_paid: total,
+      customer_id: customerId || null,
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (btn) { btn.textContent = 'Complete Sale'; btn.disabled = false; }
+    if (data.success) {
+      posToast('✓ ' + (data.message || 'Sale ' + data.sale_number + ' completed.'), 'success');
+      posShowReceipt(data, sub, tax, total);
+      // AUTO_PRINT: open print window once automatically - the modal button still works separately
+      if (AUTO_PRINT) {
+        setTimeout(() => {
+          if (data.sale_id) {
+            window.open('/pos/sale/' + data.sale_id + '/receipt/', '_blank', 'width=440,height=720');
+          }
+        }, 300);
+      }
+      posCart.length = 0;
+      posRenderCart();
+    } else {
+      posToast(data.error || 'Sale failed.', 'danger');
+    }
+  })
+  .catch(() => {
+    if (btn) { btn.textContent = 'Complete Sale'; btn.disabled = false; }
+    posToast('Network error. Check connection.', 'danger');
+  });
+}
+
+// ── Receipt modal ─────────────────────────────
+function posShowReceipt(data, sub, tax, total) {
+  lastSaleId = data.sale_id;
+  const snapshot = posCart.map(i => ({...i}));
+  const now = new Date();
+  const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  s('r-sale-num', data.sale_number);
+  s('r-datetime', now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+  s('r-subtotal', 'TSh ' + posFmt(sub));
+  s('r-tax',      'TSh ' + posFmt(tax));
+  s('r-total',    posFmt(total));
+  s('r-paid',     'TSh ' + posFmt(data.amount_paid || total));
+  s('r-pay-label', posPayMethod.charAt(0).toUpperCase() + posPayMethod.slice(1));
+  const changeRow = document.getElementById('r-change-row');
+  if (changeRow) {
+    changeRow.style.display = data.change > 0 ? 'flex' : 'none';
+    s('r-change', 'TSh ' + posFmt(data.change));
+  }
+  if (!SHOW_TAX_ON_RECEIPT) { const tr = document.getElementById('r-tax-row'); if (tr) tr.style.display = 'none'; }
+  const itemsEl = document.getElementById('r-items');
+  if (itemsEl) {
+    itemsEl.innerHTML = snapshot.map(i =>
+      '<div style="display:flex;justify-content:space-between;margin-bottom:2px">' +
+        '<span>' + i.name + ' <span style="color:#888;font-size:10px">×' + i.qty + '</span></span>' +
+        '<span>' + posFmt(i.price * i.qty) + '</span>' +
+      '</div>'
+    ).join('');
+  }
+  document.getElementById('receipt-modal').classList.add('on');
+}
+
+function posOpenPrint() {
+  if (lastSaleId) window.open('/pos/sale/' + lastSaleId + '/receipt/', '_blank', 'width=440,height=720');
+}
+
+// ── View toggle ───────────────────────────────
+function posSetView(v) {
+  const c = document.getElementById('product-container');
+  const bg = document.getElementById('btn-view-grid');
+  const bl = document.getElementById('btn-view-list');
+  if (!c) return;
+  c.className = v === 'list' ? 'plist' : 'pgrid';
+  if (bg) bg.classList.toggle('on', v !== 'list');
+  if (bl) bl.classList.toggle('on', v === 'list');
+  try { localStorage.setItem('pos_view', v); } catch(e) {}
+}
+
+// ── Helpers ───────────────────────────────────
+function posGetCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+function posToast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'alert alert-' + (type || 'success');
+  t.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:3000;min-width:260px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,0.15)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), type === 'success' ? 5000 : 4000);
+}
+
+// ── Wire up everything after DOM loads ────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Restore view
+  try { posSetView(localStorage.getItem('pos_view') || 'grid'); } catch(e) { posSetView('grid'); }
+
+  // View toggle buttons
+  const bg = document.getElementById('btn-view-grid');
+  const bl = document.getElementById('btn-view-list');
+  if (bg) bg.addEventListener('click', () => posSetView('grid'));
+  if (bl) bl.addEventListener('click', () => posSetView('list'));
+
+  // Payment buttons
+  const payBtns = { cash: 'pay-cash', mpesa: 'pay-mpesa', credit: 'pay-credit' };
+  Object.entries(payBtns).forEach(([method, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => posSelPay(method));
+  });
+
+  // Checkout
+  const checkoutBtn = document.getElementById('checkout-btn');
+  if (checkoutBtn) checkoutBtn.addEventListener('click', posCompleteSale);
+
+  // Receipt buttons
+  const btnPrint = document.getElementById('btn-print-receipt');
+  const btnNew   = document.getElementById('btn-new-sale');
+  if (btnPrint) btnPrint.addEventListener('click', posOpenPrint);
+  if (btnNew)   btnNew.addEventListener('click', () => {
+    document.getElementById('receipt-modal').classList.remove('on');
+    lastSaleId = null;
+  });
+
+  // Simple product cards
+  document.querySelectorAll('#product-container .pcard[data-pid]').forEach(card => {
+    if (card.dataset.canSell === 'no') return;
+    card.addEventListener('click', function() {
+      posAddToCart(this.dataset.pid, this.dataset.name, this.dataset.price, null, null);
+    });
+  });
+
+  // Variant chips
+  document.querySelectorAll('#product-container .vchip[data-pid]').forEach(chip => {
+    chip.addEventListener('click', function(e) {
+      e.stopPropagation();
+      posAddToCart(this.dataset.pid, this.dataset.name, this.dataset.price,
+                   this.dataset.vid, this.dataset.vlabel);
+    });
+  });
+
+  // Quick-add customer modal
+  const btnAddCust  = document.getElementById('btn-add-customer');
+  const qcModal     = document.getElementById('quick-customer-modal');
+  const qcCancel    = document.getElementById('qc-cancel');
+  const qcSave      = document.getElementById('qc-save');
+  const qcError     = document.getElementById('qc-error');
+
+  function openQuickCustomer() {
+    document.getElementById('qc-name').value  = '';
+    document.getElementById('qc-phone').value = '';
+    document.getElementById('qc-notes').value = '';
+    qcError.style.display = 'none';
+    qcModal.style.display = 'flex';
+    setTimeout(() => document.getElementById('qc-name').focus(), 100);
+  }
+
+  function closeQuickCustomer() {
+    qcModal.style.display = 'none';
+  }
+
+  if (btnAddCust) btnAddCust.addEventListener('click', openQuickCustomer);
+  if (qcCancel)   qcCancel.addEventListener('click', closeQuickCustomer);
+
+  // Also open modal automatically when user selects Credit with no customer
+  document.getElementById('pay-credit')?.addEventListener('click', () => {
+    const sel = document.getElementById('cart-customer-id');
+    if (sel && !sel.value && REQUIRE_CUSTOMER_CREDIT) {
+      setTimeout(openQuickCustomer, 150);
+    }
+  });
+
+  if (qcSave) {
+    qcSave.addEventListener('click', function() {
+      const name  = document.getElementById('qc-name').value.trim();
+      const phone = document.getElementById('qc-phone').value.trim();
+      const notes = document.getElementById('qc-notes').value.trim();
+
+      if (!name) {
+        qcError.textContent = 'Customer name is required.';
+        qcError.style.display = 'block';
+        document.getElementById('qc-name').focus();
+        return;
+      }
+
+      qcSave.textContent = 'Saving...';
+      qcSave.disabled = true;
+      qcError.style.display = 'none';
+
+      fetch('/pos/quick-add-customer/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': posGetCsrf() },
+        body: JSON.stringify({ name, phone, notes })
+      })
+      .then(r => r.json())
+      .then(data => {
+        qcSave.textContent = 'Save & Select';
+        qcSave.disabled = false;
+        if (data.success) {
+          // Add new option to the select and select it
+          const sel = document.getElementById('cart-customer-id');
+          const opt = document.createElement('option');
+          opt.value = data.customer_id;
+          opt.textContent = data.customer_name;
+          sel.appendChild(opt);
+          sel.value = data.customer_id;
+          closeQuickCustomer();
+          posToast('Customer "' + data.customer_name + '" added and selected.', 'success');
+        } else {
+          qcError.textContent = data.error || 'Failed to save customer.';
+          qcError.style.display = 'block';
+        }
+      })
+      .catch(() => {
+        qcSave.textContent = 'Save & Select';
+        qcSave.disabled = false;
+        qcError.textContent = 'Network error. Try again.';
+        qcError.style.display = 'block';
+      });
+    });
+  }
+
+  // Close modal on backdrop click
+  if (qcModal) {
+    qcModal.addEventListener('click', function(e) {
+      if (e.target === qcModal) closeQuickCustomer();
+    });
+  }
+  if (searchEl) {
+    searchEl.addEventListener('input', function() {
+      const q = this.value.toLowerCase().trim();
+      document.querySelectorAll('#product-container .pcard').forEach(card => {
+        const name = card.querySelector('.pc-name');
+        card.style.display = (!q || (name && name.textContent.toLowerCase().includes(q))) ? '' : 'none';
+      });
+    });
+  }
+});
+</script>
+{% endblock %}

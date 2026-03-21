@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Reports - {{ shop.name }}{% endblock %}
+{% block page_title %}Reports - {{ shop.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.report-nav { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:16px; }
+.report-nav a { padding:6px 14px; border-radius:20px; font-size:12px; text-decoration:none; border:1px solid #e4e4ec; color:#6b6b80; background:#fff; white-space:nowrap; }
+.report-nav a.on { background:#6146c1; color:#fff; border-color:#6146c1; font-weight:500; }
+.period-bar { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+.period-bar a { padding:4px 12px; border-radius:6px; font-size:11px; text-decoration:none; border:1px solid #e4e4ec; color:#6b6b80; background:#fff; }
+.period-bar a.on { background:#f0edfb; color:#3d2a8f; border-color:#c4b8f0; font-weight:500; }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:16px; }
+.kpi { background:#fff; border:1px solid #e4e4ec; border-radius:10px; padding:14px 16px; }
+.kpi-label { font-size:11px; color:#6b6b80; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.kpi-value { font-size:22px; font-weight:700; color:#1a1a2e; line-height:1.1; }
+.kpi-sub { font-size:11px; color:#6b6b80; margin-top:3px; }
+.kpi-sub .up { color:#0D512B; } .kpi-sub .dn { color:#9b2626; }
+.export-bar { display:flex; gap:6px; align-items:center; margin-bottom:16px; }
+.export-bar span { font-size:12px; color:#6b6b80; }
+.chart-box { width:100%; height:200px; position:relative; }
+.section-title { font-size:13px; font-weight:600; color:#1a1a2e; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block topbar_actions %}
+  <div class="export-bar">
+    <span>Export:</span>
+    <a href="?report={{ report }}&period={{ period }}{% if period == 'custom' %}&start={{ start }}&end={{ end }}{% endif %}&fmt=pdf" class="btn btn-outline btn-sm" style="font-size:11px">📄 PDF</a>
+    <a href="{% url 'reports:export_csv' %}?report={{ report }}&period={{ period }}{% if period == 'custom' %}&start={{ start }}&end={{ end }}{% endif %}" class="btn btn-outline btn-sm" style="font-size:11px">📊 CSV</a>
+    <a href="{% url 'reports:export_excel' %}?report={{ report }}&period={{ period }}{% if period == 'custom' %}&start={{ start }}&end={{ end }}{% endif %}" class="btn btn-outline btn-sm" style="font-size:11px">📗 Excel</a>
+  </div>
+{% endblock %}
+
+{% block content %}
+<!-- Report navigation -->
+<div class="report-nav">
+  {% for slug, label, icon in report_tabs %}
+  <a href="?report={{ slug }}&period={{ period }}" class="{% if report == slug %}on{% endif %}">{{ icon }} {{ label }}</a>
+  {% endfor %}
+</div>
+
+<!-- Period picker -->
+<div class="period-bar">
+  {% for p, label in periods %}
+  <a href="?report={{ report }}&period={{ p }}" class="{% if period == p %}on{% endif %}">{{ label }}</a>
+  {% endfor %}
+  {% if period not in 'today,yesterday,week,last_week,month,last_month,quarter,year' %}
+  <form method="get" style="display:flex;gap:4px;align-items:center">
+    <input type="hidden" name="report" value="{{ report }}">
+    <input type="hidden" name="period" value="custom">
+    <input type="date" name="start" value="{{ start }}" style="padding:3px 8px;font-size:11px;border:1px solid #e4e4ec;border-radius:6px">
+    <input type="date" name="end"   value="{{ end   }" style="padding:3px 8px;font-size:11px;border:1px solid #e4e4ec;border-radius:6px">
+    <button type="submit" class="btn btn-outline btn-sm" style="font-size:11px">Apply</button>
+  </form>
+  {% else %}
+  <form method="get" style="display:flex;gap:4px;align-items:center">
+    <input type="hidden" name="report" value="{{ report }}">
+    <input type="hidden" name="period" value="custom">
+    <input type="date" name="start" style="padding:3px 8px;font-size:11px;border:1px solid #e4e4ec;border-radius:6px" placeholder="From">
+    <input type="date" name="end"   style="padding:3px 8px;font-size:11px;border:1px solid #e4e4ec;border-radius:6px" placeholder="To">
+    <button type="submit" class="btn btn-outline btn-sm" style="font-size:11px">Custom</button>
+  </form>
+  {% endif %}
+</div>
+
+{% block report_content %}{% endblock %}
+{% endblock %}

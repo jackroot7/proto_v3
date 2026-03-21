@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Inspection - {{ order.order_number }}{% endblock %}
+{% block page_title %}Inspection - {{ order.order_number }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'purchases:detail' order.pk %}" class="btn btn-outline btn-sm">← Back to Order</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="card" style="margin-bottom:16px;background:#f0edfb;border-color:#c4b8f0">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:28px">🔍</div>
+    <div>
+      <div style="font-size:14px;font-weight:600;color:#3d2a8f">Inspection in progress - {{ order.order_number }}</div>
+      <div style="font-size:12px;color:#5a4a96;margin-top:2px">
+        For each product: enter how many units are <strong>accepted</strong> (good condition) and how many are <strong>rejected</strong> (damaged, wrong item, or short-supplied).
+        Accepted quantities will be <strong>automatically added to stock</strong> when you submit.
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="{% url 'purchases:inspect' order.pk %}">
+{% csrf_token %}
+
+<div class="card">
+  <div class="card-title">Inspection Form - {{ items|length }} item(s)</div>
+
+  {% for item in items %}
+  <div style="border:1px solid #e4e4ec;border-radius:10px;padding:16px;margin-bottom:14px;
+              {% if item.is_fully_received %}background:#f5fbf8;border-color:#a3d6b5{% endif %}">
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+
+      <!-- Product info -->
+      <div style="flex:2;min-width:180px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:3px">{{ item.product.name }}</div>
+        {% if item.variant %}
+        <div style="margin-bottom:4px">
+          {% for a in item.variant.attributes.all %}
+          <span class="badge badge-purple" style="margin-right:3px">{{ a.variant_type.name }}: {{ a.value }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div style="font-size:12px;color:#6b6b80">
+          {% if item.product.uom %}<span class="badge badge-purple" style="margin-right:6px">{{ item.product.uom.short_name }}</span>{% endif %}Ordered: <strong>{{ item.quantity_ordered }}</strong>
+          &nbsp;|&nbsp; Unit cost: TSh {{ item.unit_cost|floatformat:0 }}
+          &nbsp;|&nbsp; Line value: TSh {{ item.line_total|floatformat:0 }}
+        </div>
+        {% if item.quantity_received > 0 or item.quantity_rejected > 0 %}
+        <div style="font-size:12px;margin-top:4px">
+          Previously received: <span style="color:#0D512B;font-weight:500">{{ item.quantity_received }}</span>
+          &nbsp; Rejected: <span style="color:#9b2626;font-weight:500">{{ item.quantity_rejected }}</span>
+          &nbsp; Pending: <span style="color:#e67e22;font-weight:500">{{ item.quantity_pending }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Inspection inputs -->
+      {% if item.is_fully_received %}
+      <div style="flex:1;text-align:center;min-width:140px">
+        <span class="badge badge-green" style="font-size:12px;padding:6px 14px">Fully Received ✓</span>
+      </div>
+      {% else %}
+      <div style="flex:1;min-width:280px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#0a3d1f;display:block;margin-bottom:4px">
+              ✓ Accepted (good units)
+            </label>
+            <input type="number"
+                   name="accepted_{{ item.pk }}"
+                   value="{{ item.quantity_pending }}"
+                   min="0"
+                   max="{{ item.quantity_pending }}"
+                   style="border-color:#a3d6b5;font-size:14px;font-weight:600;text-align:center"
+                   oninput="updateInspectionRow({{ item.pk }}, {{ item.quantity_pending }})">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7a1f1f;display:block;margin-bottom:4px">
+              ✕ Rejected (damaged/wrong)
+            </label>
+            <input type="number"
+                   name="rejected_{{ item.pk }}"
+                   value="0"
+                   min="0"
+                   max="{{ item.quantity_pending }}"
+                   style="border-color:#f5b0b0;font-size:14px;font-weight:600;text-align:center"
+                   oninput="updateInspectionRow({{ item.pk }}, {{ item.quantity_pending }})">
+          </div>
+        </div>
+        <div style="background:#f7f7f8;border-radius:6px;padding:6px 10px;font-size:12px;color:#6b6b80" id="row-summary-{{ item.pk }}">
+          Accepting {{ item.quantity_pending }} of {{ item.quantity_pending }} pending units
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Inspection notes -->
+    {% if not item.is_fully_received %}
+    <div style="margin-top:10px">
+      <label style="font-size:11px;color:#6b6b80;display:block;margin-bottom:4px">
+        Inspection notes (optional - describe damage, shortages, etc.)
+      </label>
+      <textarea name="notes_{{ item.pk }}" rows="2" placeholder="e.g. 2 units arrived with broken zips, 1 wrong colour..."
+                style="font-size:12px">{{ item.inspection_notes }}</textarea>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+</div>
+
+<!-- Stock preview -->
+<div class="card" style="background:#e8f5ee;border-color:#a3d6b5;margin-bottom:16px">
+  <div class="card-title" style="color:#0a3d1f">What will happen when you submit</div>
+  <ul style="margin:0;padding-left:20px;font-size:13px;color:#0a3d1f;line-height:2">
+    <li>All <strong>accepted</strong> quantities will be automatically added to stock for <strong>{{ shop.name }}</strong></li>
+    <li>The buying price of each product will be updated to the unit cost on this order</li>
+    <li>A stock movement record will be created for each item with inspection details</li>
+    <li>If all items are fully received, the order will be marked <strong>Received</strong></li>
+    <li>If some items are still pending, the order stays as <strong>Partial Receipt</strong> for a future inspection</li>
+  </ul>
+</div>
+
+<div style="display:flex;gap:10px">
+  <button type="submit" class="btn btn-success" style="padding:10px 28px;font-size:14px">
+    Submit Inspection &amp; Auto-Stock Accepted Items
+  </button>
+  <a href="{% url 'purchases:detail' order.pk %}" class="btn btn-outline">Cancel</a>
+</div>
+
+</form>
+
+<script>
+function updateInspectionRow(itemPk, totalPending) {
+  const accepted = parseInt(document.querySelector('[name="accepted_' + itemPk + '"]').value) || 0;
+  const rejected = parseInt(document.querySelector('[name="rejected_' + itemPk + '"]').value) || 0;
+  const summary  = document.getElementById('row-summary-' + itemPk);
+  const leftover = totalPending - accepted - rejected;
+  let msg = 'Accepting ' + accepted + ' of ' + totalPending + ' pending units';
+  if (rejected > 0) msg += ', rejecting ' + rejected;
+  if (leftover > 0) msg += ', ' + leftover + ' still pending';
+  if (accepted + rejected > totalPending) {
+    msg = '⚠ Total exceeds pending quantity (' + totalPending + ')';
+    summary.style.color = '#9b2626';
+  } else {
+    summary.style.color = '#6b6b80';
+  }
+  if (summary) summary.textContent = msg;
+}
+</script>
+{% endblock %}

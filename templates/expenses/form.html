@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Record Expense{% endblock %}
+{% block page_title %}Record Expense{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px">
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    {% for field in form %}
+    <div class="form-group"><label>{{ field.label }}</label>{{ field }}{% if field.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ field.errors.0 }}</div>{% endif %}</div>
+    {% endfor %}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="submit" class="btn btn-primary">Save Expense</button>
+      <a href="{% url 'expenses:list' %}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

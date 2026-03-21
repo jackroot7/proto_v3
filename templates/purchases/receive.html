@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Receive Items{% endblock %}
+{% block page_title %}Receive Items - {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    <table>
+      <thead><tr><th>Product</th><th>Ordered</th><th>Already Received</th><th>Receiving Now</th></tr></thead>
+      <tbody>
+        {% for item in order.items.all %}
+        <tr>
+          <td style="font-weight:500">{{ item.product.name }}{% if item.variant %} - {{ item.variant }}{% endif %}</td>
+          <td>{{ item.quantity_ordered }}</td>
+          <td style="color:#6b6b80">{{ item.quantity_received }}</td>
+          <td><input type="number" name="item_{{ item.pk }}" value="0" min="0" max="{{ item.quantity_ordered }}" style="width:100px"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button type="submit" class="btn btn-success">Confirm Receipt & Update Stock</button>
+      <a href="{% url 'purchases:detail' order.pk %}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Order{% endblock %}
+{% block page_title %}New Purchase Order{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'purchases:list' %}" class="btn btn-outline btn-sm">← Back</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'purchases:create' %}">
+{% csrf_token %}
+<div class="grid-2" style="align-items:start">
+
+  <!-- LEFT: Order header -->
+  <div class="card">
+    <div class="card-title">Order Details</div>
+    <div class="form-group">
+      <label>Supplier <span style="color:#9b2626">*</span></label>
+      <select name="supplier" required>
+        <option value="">- Select supplier -</option>
+        {% for s in suppliers %}
+          <option value="{{ s.id }}">{{ s.name }}{% if s.phone %} ({{ s.phone }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      <div style="margin-top:6px">
+        <a href="{% url 'purchases:supplier_create' %}" class="btn btn-outline btn-sm" target="_blank">+ Add new supplier</a>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Expected Delivery Date</label>
+      <input type="date" name="expected_date">
+    </div>
+    <div class="form-group">
+      <label>Notes / Instructions to Supplier</label>
+      <textarea name="notes" rows="3" placeholder="Any special instructions..."></textarea>
+    </div>
+  </div>
+
+  <!-- RIGHT: Order summary -->
+  <div class="card">
+    <div class="card-title">Order Summary</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e4e4ec;font-size:13px">
+        <span style="color:#6b6b80">Items added</span>
+        <span id="summary-count" style="font-weight:500">0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e4e4ec;font-size:13px">
+        <span style="color:#6b6b80">Total units</span>
+        <span id="summary-units" style="font-weight:500">0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;font-weight:600">
+        <span>Estimated Total</span>
+        <span id="summary-total" style="color:#6146c1">TSh 0</span>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button type="submit" class="btn btn-primary" style="width:100%">Create Purchase Order</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Products table -->
+<div class="card" style="margin-top:0">
+  <div class="card-title">
+    Products to Order
+    <button type="button" class="btn btn-outline btn-sm" onclick="addRow()">+ Add Product Row</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="items-table">
+      <thead>
+        <tr>
+          <th style="width:30%">Product</th>
+          <th style="width:20%">Variant</th>
+          <th style="width:12%">Qty to Order</th>
+          <th style="width:15%">Unit Cost (TSh)</th>
+          <th style="width:15%">Line Total</th>
+          <th style="width:8%"></th>
+        </tr>
+      </thead>
+      <tbody id="items-body">
+        <!-- rows added by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <div id="no-items-msg" style="text-align:center;padding:28px;color:#6b6b80;font-size:13px">
+    Click "+ Add Product Row" to add the first product.
+  </div>
+</div>
+
+</form>
+
+<script>
+const products = [
+  {% for p in products %}
+  { id: {{ p.id }}, name: "{{ p.name|escapejs }}", buying_price: "{{ p.buying_price }}", has_variants: {{ p.has_variants|yesno:'true,false' }}, uom: "{% if p.uom %}{{ p.uom.short_name|escapejs }}{% endif %}" },
+  {% endfor %}
+];
+
+let rowCount = 0;
+
+function addRow() {
+  document.getElementById('no-items-msg').style.display = 'none';
+  const tbody = document.getElementById('items-body');
+  const n = ++rowCount;
+  const tr = document.createElement('tr');
+  tr.id = `row-${n}`;
+  tr.innerHTML = `
+    <td>
+      <select name="product_id[]" onchange="onProductChange(this, ${n})" required style="font-size:12px">
+        <option value="">- Select product -</option>
+        ${products.map(p => `<option value="${p.id}" data-price="${p.buying_price}" data-variants="${p.has_variants}" data-uom="${p.uom}">${p.name}${p.uom ? ' (' + p.uom + ')' : ''}</option>`).join('')}
+      </select>
+    </td>
+    <td>
+      <select name="variant_id[]" id="variant-sel-${n}" style="font-size:12px;color:#6b6b80" disabled>
+        <option value="">No variants</option>
+      </select>
+    </td>
+    <td><input type="number" name="quantity[]" id="qty-${n}" value="1" min="1" style="width:80px;font-size:12px" oninput="recalcRow(${n})"></td>
+    <td><input type="number" name="unit_cost[]" id="cost-${n}" value="" placeholder="0" style="width:100px;font-size:12px" oninput="recalcRow(${n})"></td>
+    <td><span id="total-${n}" style="font-size:13px;font-weight:500;color:#6146c1">TSh 0</span></td>
+    <td>
+      <button type="button" onclick="removeRow(${n})" style="background:none;border:none;color:#9b2626;cursor:pointer;font-size:16px" title="Remove">✕</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  updateSummary();
+}
+
+function removeRow(n) {
+  const row = document.getElementById(`row-${n}`);
+  if (row) row.remove();
+  if (!document.getElementById('items-body').children.length) {
+    document.getElementById('no-items-msg').style.display = 'block';
+  }
+  updateSummary();
+}
+
+function onProductChange(sel, n) {
+  const opt = sel.options[sel.selectedIndex];
+  const price = opt.dataset.price || '0';
+  const hasVariants = opt.dataset.variants === 'true';
+  const productId = sel.value;
+  document.getElementById(`cost-${n}`).value = price;
+  recalcRow(n);
+
+  const variantSel = document.getElementById(`variant-sel-${n}`);
+  if (hasVariants && productId) {
+    variantSel.disabled = false;
+    variantSel.innerHTML = '<option value="">Loading...</option>';
+    fetch(`/purchases/api/product/${productId}/variants/`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.variants.length) {
+          variantSel.innerHTML = '<option value="">- No specific variant -</option>' +
+            data.variants.map(v => `<option value="${v.id}" data-price="${v.buying_price}">${v.label}</option>`).join('');
+          variantSel.onchange = function() {
+            const vopt = variantSel.options[variantSel.selectedIndex];
+            if (vopt.dataset.price) document.getElementById(`cost-${n}`).value = vopt.dataset.price;
+            recalcRow(n);
+          };
+        } else {
+          variantSel.innerHTML = '<option value="">No variants</option>';
+          variantSel.disabled = true;
+        }
+      });
+  } else {
+    variantSel.innerHTML = '<option value="">No variants</option>';
+    variantSel.disabled = true;
+  }
+}
+
+function recalcRow(n) {
+  const qty  = parseFloat(document.getElementById(`qty-${n}`)?.value || 0);
+  const cost = parseFloat(document.getElementById(`cost-${n}`)?.value || 0);
+  const total = qty * cost;
+  const el = document.getElementById(`total-${n}`);
+  if (el) el.textContent = 'TSh ' + Math.round(total).toLocaleString();
+  updateSummary();
+}
+
+function updateSummary() {
+  const rows = document.getElementById('items-body').querySelectorAll('tr');
+  let count = rows.length, units = 0, total = 0;
+  rows.forEach(row => {
+    const qtyEl  = row.querySelector('input[name="quantity[]"]');
+    const costEl = row.querySelector('input[name="unit_cost[]"]');
+    const qty    = parseFloat(qtyEl?.value || 0);
+    const cost   = parseFloat(costEl?.value || 0);
+    units += qty;
+    total += qty * cost;
+  });
+  document.getElementById('summary-count').textContent = count;
+  document.getElementById('summary-units').textContent = Math.round(units);
+  document.getElementById('summary-total').textContent = 'TSh ' + Math.round(total).toLocaleString();
+}
+
+// Add first row automatically
+addRow();
+</script>
+{% endblock %}

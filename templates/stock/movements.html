@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Stock Movements{% endblock %}
+{% block page_title %}Stock Movement History{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Before</th><th>After</th><th>Reference</th><th>By</th></tr></thead>
+      <tbody>
+        {% for m in movements %}
+        <tr>
+          <td style="font-size:12px;color:#6b6b80;white-space:nowrap">{{ m.created_at|date:"d M H:i" }}</td>
+          <td style="font-weight:500">{{ m.product.name }}</td>
+          <td><span class="badge {% if m.movement_type == 'sale' %}badge-pink{% elif m.movement_type == 'purchase' %}badge-green{% else %}badge-gray{% endif %}">{{ m.get_movement_type_display }}</span></td>
+          <td style="font-weight:600;{% if m.quantity < 0 %}color:#9b2626{% else %}color:#0D512B{% endif %}">{% if m.quantity > 0 %}+{% endif %}{{ m.quantity }}</td>
+          <td style="color:#6b6b80">{{ m.quantity_before }}</td>
+          <td style="color:#6b6b80">{{ m.quantity_after }}</td>
+          <td style="font-size:12px;color:#6b6b80">{{ m.reference|default:"-" }}</td>
+          <td style="font-size:12px">{{ m.created_by.username|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;padding:28px;color:#6b6b80">No movements yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% include "_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

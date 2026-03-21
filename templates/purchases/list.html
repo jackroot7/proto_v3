@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Purchase Orders{% endblock %}
+{% block page_title %}Purchase Orders{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'purchases:suppliers' %}" class="btn btn-outline btn-sm">Suppliers</a>
+  <a href="{% url 'purchases:create' %}" class="btn btn-primary btn-sm">+ New Order</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Order #</th><th>Supplier</th><th>Items</th><th>Total</th><th>Date</th><th>Expected</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td style="font-weight:500">{{ o.order_number }}</td>
+          <td>{{ o.supplier.name }}</td>
+          <td>{{ o.items.count }} item(s)</td>
+          <td>TSh {{ o.total|floatformat:0 }}</td>
+          <td style="color:#6b6b80;font-size:12px">{{ o.order_date }}</td>
+          <td style="color:#6b6b80;font-size:12px">{{ o.expected_date|default:"-" }}</td>
+          <td>
+            {% if o.status == 'received' %}<span class="badge badge-green">Received</span>
+            {% elif o.status == 'partial' %}<span class="badge badge-amber">Partial</span>
+            {% elif o.status == 'sent' %}<span class="badge badge-purple">Sent</span>
+            {% elif o.status == 'cancelled' %}<span class="badge badge-red">Cancelled</span>
+            {% else %}<span class="badge badge-gray">Draft</span>{% endif %}
+          </td>
+          <td><a href="{% url 'purchases:detail' o.pk %}" class="btn btn-outline btn-sm">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;padding:28px;color:#6b6b80">No purchase orders yet. <a href="{% url 'purchases:create' %}">Create one</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% include "_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

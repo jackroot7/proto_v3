@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Stock Report{% endblock %}
+{% block page_title %}Reports - Stock{% endblock %}
+{% block content %}
+{% include "reports/_nav.html" %}
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">Inventory Cost Value</div><div class="kpi-value">TSh {{ total_cost_value|floatformat:0 }}</div><div class="kpi-sub">At buying price</div></div>
+  <div class="kpi"><div class="kpi-label">Retail Value</div><div class="kpi-value">TSh {{ total_retail_value|floatformat:0 }}</div><div class="kpi-sub">At selling price</div></div>
+  <div class="kpi"><div class="kpi-label">Potential Profit</div><div class="kpi-value" style="color:#0D512B">TSh {{ potential_profit|floatformat:0 }}</div><div class="kpi-sub">If all stock sells</div></div>
+  <div class="kpi"><div class="kpi-label">Out of Stock</div><div class="kpi-value" style="color:#9b2626">{{ out_of_stock|length }}</div><div class="kpi-sub">Products</div></div>
+  <div class="kpi"><div class="kpi-label">Low Stock</div><div class="kpi-value" style="color:#e67e22">{{ low_stock|length }}</div><div class="kpi-sub">Products</div></div>
+  <div class="kpi"><div class="kpi-label">Healthy</div><div class="kpi-value" style="color:#0D512B">{{ healthy_stock|length }}</div><div class="kpi-sub">Products</div></div>
+</div>
+{% if out_of_stock %}
+<div class="card" style="background:#fdeaea;border-color:#f5b0b0;margin-bottom:14px">
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#7a1f1f">Out of Stock ({{ out_of_stock|length }})</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">{% for l in out_of_stock %}<span class="badge badge-red">{{ l.product.name }}</span>{% endfor %}</div>
+</div>{% endif %}
+{% if low_stock %}
+<div class="card" style="background:#fef3dc;border-color:#f9c74f;margin-bottom:14px">
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#7a5010">Low Stock ({{ low_stock|length }})</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">{% for l in low_stock %}<span class="badge badge-amber">{{ l.product.name }} ({{ l.quantity }})</span>{% endfor %}</div>
+</div>{% endif %}
+<div class="card" style="margin-bottom:14px">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px">Full inventory</div>
+  <div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>UOM</th><th>Qty</th><th>Buy Price</th><th>Cost Value</th><th>Retail Value</th><th>Status</th></tr></thead>
+  <tbody>{% for l in levels %}<tr>
+    <td style="font-weight:500">{{ l.product.name }}</td>
+    <td style="font-size:12px;color:#6b6b80">{{ l.product.category.name|default:"-" }}</td>
+    <td>{% if l.product.uom %}<span class="badge badge-purple">{{ l.product.uom.short_name }}</span>{% else %}-{% endif %}</td>
+    <td style="font-weight:{% if l.quantity <= 0 %}600{% else %}400{% endif %};color:{% if l.quantity <= 0 %}#9b2626{% elif l.is_critical %}#e67e22{% else %}#1a1a2e{% endif %}">{{ l.quantity }}</td>
+    <td style="font-size:12px">TSh {{ l.product.buying_price|floatformat:0 }}</td>
+    <td>TSh {{ l.quantity|floatformat:0 }}</td>
+    <td style="color:#0D512B">TSh {{ l.quantity|floatformat:0 }}</td>
+    <td>{% if l.quantity <= 0 %}<span class="badge badge-red">Out</span>{% elif l.is_critical %}<span class="badge badge-red">Critical</span>{% elif l.is_low %}<span class="badge badge-amber">Low</span>{% else %}<span class="badge badge-green">OK</span>{% endif %}</td>
+  </tr>{% endfor %}</tbody></table></div>
+</div>
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px">Stock movements - {{ start }} to {{ end }}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">{% for m in movement_summary %}<div style="background:#f7f7f8;border-radius:6px;padding:6px 12px;font-size:12px"><strong>{{ m.movement_type|title }}</strong>: {{ m.count }} movements</div>{% endfor %}</div>
+  <div class="table-wrap"><table><thead><tr><th>Date</th><th>Product</th><th>Type</th><th>Change</th><th>Before</th><th>After</th><th>Notes</th></tr></thead>
+  <tbody>{% for m in movements %}<tr><td style="font-size:11px;color:#6b6b80">{{ m.created_at|date:"d M H:i" }}</td><td style="font-weight:500;font-size:12px">{{ m.product.name }}</td><td><span class="badge badge-{% if m.quantity > 0 %}green{% else %}red{% endif %}">{{ m.movement_type|title }}</span></td><td style="font-weight:600;color:{% if m.quantity > 0 %}#0D512B{% else %}#9b2626{% endif %}">{% if m.quantity > 0 %}+{% endif %}{{ m.quantity }}</td><td style="color:#6b6b80;font-size:12px">{{ m.quantity_before }}</td><td style="font-size:12px">{{ m.quantity_after }}</td><td style="font-size:11px;color:#6b6b80;max-width:160px">{{ m.notes|default:"-" }}</td></tr>{% empty %}<tr><td colspan="7" style="text-align:center;padding:20px;color:#6b6b80">No stock movements in this period.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endblock %}

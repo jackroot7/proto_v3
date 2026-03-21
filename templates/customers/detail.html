@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block page_title %}{{ customer.name }}{% endblock %}
+{% block topbar_actions %}
+  {% if customer.has_debt %}
+  <a href="{% url 'customers:credit_payment' customer.pk %}" class="btn btn-success btn-sm">Record Payment</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Customer Details</div>
+    <table>
+      <tr><td style="color:#6b6b80;width:130px">Phone</td><td>{{ customer.phone|default:"-" }}</td></tr>
+      <tr><td style="color:#6b6b80">Email</td><td>{{ customer.email|default:"-" }}</td></tr>
+      <tr><td style="color:#6b6b80">Credit Limit</td><td>TSh {{ customer.credit_limit|floatformat:0 }}</td></tr>
+      <tr><td style="color:#6b6b80">Outstanding</td><td style="font-weight:600;color:{% if customer.has_debt %}#9b2626{% else %}#0D512B{% endif %}">TSh {{ customer.credit_balance|floatformat:0 }}</td></tr>
+      <tr><td style="color:#6b6b80">Notes</td><td style="font-size:12px">{{ customer.notes|default:"-" }}</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Credit Payments</div>
+    {% for p in payments %}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e4e4ec;font-size:13px">
+      <div><span class="badge badge-green" style="margin-right:6px">{{ p.get_payment_method_display }}</span>{{ p.created_at|date:"d M Y" }}</div>
+      <span style="font-weight:500;color:#0D512B">TSh {{ p.amount|floatformat:0 }}</span>
+    </div>
+    {% empty %}<p style="color:#6b6b80;font-size:13px">No payments recorded.</p>{% endfor %}
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">Purchase History</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Sale #</th><th>Date</th><th>Total</th><th>Payment</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for s in sales %}
+        <tr>
+          <td style="font-weight:500">{{ s.sale_number }}</td>
+          <td style="color:#6b6b80;font-size:12px">{{ s.created_at|date:"d M Y H:i" }}</td>
+          <td>TSh {{ s.total|floatformat:0 }}</td>
+          <td><span class="badge badge-gray">{{ s.get_payment_method_display }}</span></td>
+          <td>{% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>{% elif s.status == 'voided' %}<span class="badge badge-red">Voided</span>{% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="color:#6b6b80;padding:16px">No purchases yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

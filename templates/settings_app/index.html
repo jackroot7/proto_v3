@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings - {{ shop.name }}{% endblock %}
+
+{% block content %}
+{% if role == 'cashier' %}
+  <div class="alert alert-danger">You do not have permission to access settings. Contact the owner.</div>
+{% else %}
+
+{% if messages %}
+<div style="margin-bottom:14px">
+  {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="pill-tabs" id="stabs">
+  <a href="#" class="pill-tab active" onclick="stab('general',this);return false;">General</a>
+  <a href="#" class="pill-tab"        onclick="stab('tax',this);return false;">Tax</a>
+  <a href="#" class="pill-tab"        onclick="stab('pos',this);return false;">POS &amp; Stock</a>
+  <a href="#" class="pill-tab"        onclick="stab('reports',this);return false;">Daily Reports</a>
+  <a href="#" class="pill-tab"        onclick="stab('receipt',this);return false;">Receipt</a>
+  <a href="#" class="pill-tab"        onclick="stab('sync',this);return false;">Sync</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN SETTINGS FORM  - no other <form> tags inside this
+     ═══════════════════════════════════════════════════════ -->
+<form method="post" action="{% url 'settings:index' %}" id="settings-form">
+{% csrf_token %}
+
+{% if form.errors %}
+<div class="alert alert-danger" style="margin-bottom:14px">
+  Please fix the errors below before saving.
+  {% for field, errs in form.errors.items %}
+    <div style="font-size:12px;margin-top:4px"><strong>{{ field }}:</strong> {{ errs.0 }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- GENERAL -->
+<div class="stab-section" id="stab-general">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Shop information</div>
+      <div class="form-group">
+        <label>Shop name</label>
+        <input type="text" value="{{ shop.name }}" disabled style="background:#f7f7f8;color:#6b6b80">
+        <div class="field-hint">To rename go to Admin → Shops.</div>
+      </div>
+      <div class="form-group">
+        <label>Currency symbol</label>
+        {{ form.currency }}
+        {% if form.currency.errors %}<div class="field-error">{{ form.currency.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label>Timezone</label>
+        {{ form.timezone }}
+        {% if form.timezone.errors %}<div class="field-error">{{ form.timezone.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Language</div>
+      <p style="font-size:13px;color:#6b6b80;margin-bottom:14px;line-height:1.6">
+        Choose the display language. Takes effect after saving.
+      </p>
+      <div class="form-group">
+        <label>Display language</label>
+        {{ form.language }}
+        {% if form.language.errors %}<div class="field-error">{{ form.language.errors.0 }}</div>{% endif %}
+      </div>
+
+      <!-- Language quick buttons - these are OUTSIDE the main form via form="..." attribute -->
+      <div style="background:#f0edfb;border:1px solid #c4b8f0;border-radius:8px;padding:12px;margin-top:6px">
+        <div style="font-size:12px;font-weight:500;color:#3d2a8f;margin-bottom:8px">Quick switch (instant, no save needed)</div>
+        <div style="display:flex;gap:8px">
+          <button type="submit" form="lang-form-en" class="btn btn-outline btn-sm"
+            {% if settings.language == 'en' %}style="border-color:#6146c1;color:#6146c1;background:#f0edfb"{% endif %}>
+            English
+          </button>
+          <button type="submit" form="lang-form-sw" class="btn btn-outline btn-sm"
+            {% if settings.language == 'sw' %}style="border-color:#6146c1;color:#6146c1;background:#f0edfb"{% endif %}>
+            Kiswahili
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAX -->
+<div class="stab-section" id="stab-tax" style="display:none">
+  <div class="card" style="max-width:560px">
+    <div class="card-title">Tax configuration</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Tax name <span class="field-hint">e.g. VAT, GST</span></label>
+        {{ form.tax_name }}
+        {% if form.tax_name.errors %}<div class="field-error">{{ form.tax_name.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label>Tax rate (%)</label>
+        {{ form.tax_rate }}
+        <div class="field-hint">Standard Tanzania VAT = 18%</div>
+        {% if form.tax_rate.errors %}<div class="field-error">{{ form.tax_rate.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="toggle-row">
+        {{ form.tax_inclusive }}
+        <label for="{{ form.tax_inclusive.id_for_label }}" class="toggle-label">{{ form.tax_inclusive.label }}</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- POS & STOCK -->
+<div class="stab-section" id="stab-pos" style="display:none">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">POS behaviour</div>
+      <div class="form-group">
+        <div class="toggle-row">
+          {{ form.require_customer_on_credit }}
+          <label for="{{ form.require_customer_on_credit.id_for_label }}" class="toggle-label">{{ form.require_customer_on_credit.label }}</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="toggle-row">
+          {{ form.allow_negative_stock }}
+          <label for="{{ form.allow_negative_stock.id_for_label }}" class="toggle-label">{{ form.allow_negative_stock.label }}</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="toggle-row">
+          {{ form.print_receipt_auto }}
+          <label for="{{ form.print_receipt_auto.id_for_label }}" class="toggle-label">{{ form.print_receipt_auto.label }}</label>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Stock alerts</div>
+      <div class="form-group">
+        <label>{{ form.low_stock_threshold.label }}</label>
+        {{ form.low_stock_threshold }}
+        <div class="field-hint">Products at or below this number show a warning.</div>
+        {% if form.low_stock_threshold.errors %}<div class="field-error">{{ form.low_stock_threshold.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <div class="toggle-row">
+          {{ form.auto_reorder }}
+          <label for="{{ form.auto_reorder.id_for_label }}" class="toggle-label">{{ form.auto_reorder.label }}</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY REPORTS -->
+<div class="stab-section" id="stab-reports" style="display:none">
+  <div class="card" style="max-width:600px">
+    <div class="card-title">Daily report delivery</div>
+    <p style="font-size:13px;color:#6b6b80;margin-bottom:16px;line-height:1.6">
+      When you close the day, Proto v3 generates a PDF and sends it to the owner.
+    </p>
+    <div class="form-group">
+      <div class="toggle-row">
+        {{ form.daily_report_enabled }}
+        <label for="{{ form.daily_report_enabled.id_for_label }}" class="toggle-label">{{ form.daily_report_enabled.label }}</label>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>{{ form.daily_report_email.label }}</label>
+        {{ form.daily_report_email }}
+        {% if form.daily_report_email.errors %}<div class="field-error">{{ form.daily_report_email.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label>{{ form.daily_report_whatsapp.label }}</label>
+        {{ form.daily_report_whatsapp }}
+        <div class="field-hint">Include country code: +255712345678</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>{{ form.daily_report_time.label }} <span class="field-hint">- optional scheduled send</span></label>
+      {{ form.daily_report_time }}
+    </div>
+  </div>
+</div>
+
+<!-- RECEIPT -->
+<div class="stab-section" id="stab-receipt" style="display:none">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Receipt customisation</div>
+      <div class="form-group">
+        <label>Header text <span class="field-hint">- top of receipt</span></label>
+        {{ form.receipt_header }}
+      </div>
+      <div class="form-group">
+        <label>Footer text <span class="field-hint">- bottom of receipt</span></label>
+        {{ form.receipt_footer }}
+      </div>
+      <div class="form-group">
+        <div class="toggle-row">
+          {{ form.show_tax_on_receipt }}
+          <label for="{{ form.show_tax_on_receipt.id_for_label }}" class="toggle-label">{{ form.show_tax_on_receipt.label }}</label>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Preview</div>
+      <div style="border:1px dashed #ccc;border-radius:6px;padding:14px;font-family:monospace;font-size:12px;line-height:2;background:#fff">
+        <div style="text-align:center;font-weight:bold">{{ shop.name }}</div>
+        {% if settings.receipt_header %}<div style="text-align:center;color:#6b6b80;font-size:11px">{{ settings.receipt_header }}</div>{% endif %}
+        <div style="border-top:1px dashed #ccc;margin:8px 0"></div>
+        <div style="display:flex;justify-content:space-between"><span>Product x2</span><span>TSh 24,000</span></div>
+        <div style="border-top:1px dashed #ccc;margin:8px 0"></div>
+        <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>TSh 24,000</span></div>
+        {% if settings.show_tax_on_receipt %}<div style="display:flex;justify-content:space-between"><span>{{ settings.tax_name|default:"VAT" }} {{ settings.tax_rate|default:18 }}%</span><span>TSh 4,320</span></div>{% endif %}
+        <div style="display:flex;justify-content:space-between;font-weight:bold"><span>TOTAL</span><span>TSh 28,320</span></div>
+        <div style="border-top:1px dashed #ccc;margin:8px 0"></div>
+        <div style="text-align:center;color:#6b6b80;font-size:11px">{{ settings.receipt_footer|default:"Thank you!" }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SYNC -->
+<div class="stab-section" id="stab-sync" style="display:none">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Sync status</div>
+      <table>
+        <tr><td style="color:#6b6b80;padding:8px 0;width:150px">Connection</td><td><span class="badge badge-green" id="sync-status-badge">Checking...</span></td></tr>
+        <tr><td style="color:#6b6b80;padding:8px 0">Pending uploads</td><td style="font-weight:600">{{ pending_sync }}</td></tr>
+        {% if last_sync %}
+        <tr><td style="color:#6b6b80;padding:8px 0">Last sync</td><td style="font-size:12px">{{ last_sync.created_at|date:"d M Y H:i" }}</td></tr>
+        <tr><td style="color:#6b6b80;padding:8px 0">Records synced</td><td>{{ last_sync.records_synced }}</td></tr>
+        {% else %}
+        <tr><td style="color:#6b6b80;padding:8px 0">Last sync</td><td style="color:#6b6b80">Never</td></tr>
+        {% endif %}
+      </table>
+      <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+        <button type="button" class="btn btn-outline btn-sm" onclick="doSync()">Sync Now</button>
+        <span id="sync-result" style="font-size:12px;color:#6b6b80"></span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Offline mode</div>
+      <p style="font-size:13px;color:#6b6b80;line-height:1.6;margin-bottom:10px">Proto v3 works fully without internet. All data is stored locally and synced when connection returns.</p>
+      <div style="background:#e8f5ee;border-radius:8px;padding:11px;font-size:12px;color:#0a3d1f;margin-bottom:8px"><strong>No data is lost offline.</strong> Records queue and upload automatically when connected.</div>
+      <div style="background:#f0edfb;border-radius:8px;padding:11px;font-size:12px;color:#3d2a8f">Set <code>CLOUD_SYNC_URL</code> in <code>config/settings.py</code> to connect to a cloud server.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SAVE BUTTON -->
+<div style="margin-top:20px;padding-top:16px;border-top:1px solid #e4e4ec;display:flex;align-items:center;gap:14px">
+  <button type="submit" class="btn btn-primary" style="padding:10px 32px;font-size:14px">Save Changes</button>
+  <span style="font-size:12px;color:#6b6b80">
+    Last saved: {{ settings.updated_at|date:"d M Y H:i"|default:"Not yet saved" }}
+  </span>
+</div>
+
+</form>
+<!-- End of main settings form -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     LANGUAGE SWITCH FORMS - completely outside the main form
+     Referenced by the buttons above using form="lang-form-en"
+     ═══════════════════════════════════════════════════════ -->
+<form method="post" action="{% url 'settings:change_language' %}" id="lang-form-en">
+  {% csrf_token %}
+  <input type="hidden" name="language" value="en">
+  <input type="hidden" name="next" value="{{ request.path }}">
+</form>
+<form method="post" action="{% url 'settings:change_language' %}" id="lang-form-sw">
+  {% csrf_token %}
+  <input type="hidden" name="language" value="sw">
+  <input type="hidden" name="next" value="{{ request.path }}">
+</form>
+
+{% endif %}
+
+<script>
+function stab(id, el) {
+  document.querySelectorAll('.stab-section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('#stabs .pill-tab').forEach(t => t.classList.remove('active'));
+  const sec = document.getElementById('stab-' + id);
+  if (sec) sec.style.display = 'block';
+  el.classList.add('active');
+}
+
+function doSync() {
+  const r = document.getElementById('sync-result');
+  r.textContent = 'Syncing...';
+  fetch('/sync/trigger/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(res => res.json()).then(d => {
+    r.textContent = d.synced + ' synced, ' + d.failed + ' failed (' + d.duration + 's)';
+    const b = document.getElementById('sync-status-badge');
+    if (b) { b.textContent = '● Online'; b.className = 'badge badge-green'; }
+  }).catch(() => { r.textContent = 'Failed - no connection.'; });
+}
+
+fetch('/sync/status/')
+  .then(r => r.json())
+  .then(d => {
+    const b = document.getElementById('sync-status-badge');
+    if (!b) return;
+    b.textContent = d.online ? '● Online' : '◌ Offline';
+    b.className = d.online ? 'badge badge-green' : 'badge badge-amber';
+  }).catch(() => {
+    const b = document.getElementById('sync-status-badge');
+    if (b) { b.textContent = '◌ Offline'; b.className = 'badge badge-amber'; }
+  });
+</script>
+{% endblock %}

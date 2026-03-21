@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Stock Take{% endblock %}
+{% block page_title %}Start Stock-Take{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px">
+  <p style="color:#6b6b80;font-size:13px;margin-bottom:20px">Starting a stock-take will load all active products with their current system quantities. Count each item physically and enter the actual count.</p>
+  <form method="post">{% csrf_token %}
+    <button type="submit" class="btn btn-primary">Start Stock-Take for {{ shop.name }}</button>
+    <a href="{% url 'stock:list' %}" class="btn btn-outline" style="margin-left:8px">Cancel</a>
+  </form>
+</div>
+{% endblock %}

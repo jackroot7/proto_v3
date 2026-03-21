@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block page_title %}Suppliers{% endblock %}
+{% block topbar_actions %}<a href="{% url 'purchases:supplier_create' %}" class="btn btn-primary btn-sm">+ Add Supplier</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <table>
+    <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Orders</th><th></th></tr></thead>
+    <tbody>
+      {% for s in suppliers %}
+      <tr>
+        <td style="font-weight:500">{{ s.name }}</td>
+        <td style="color:#6b6b80">{{ s.phone|default:"-" }}</td>
+        <td style="color:#6b6b80">{{ s.email|default:"-" }}</td>
+        <td>{{ s.orders.count }}</td>
+        <td><a href="{% url 'purchases:list' %}" class="btn btn-outline btn-sm">View Orders</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;padding:24px;color:#6b6b80">No suppliers yet. <a href="{% url 'purchases:supplier_create' %}">Add one</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

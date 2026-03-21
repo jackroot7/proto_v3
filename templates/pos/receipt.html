@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Receipt - {{ sale.sale_number }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #d0d0d0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 16px 50px;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  /* ── Thermal paper wrapper ───────────────── */
+  .receipt-paper {
+    width: 100%;
+    max-width: 340px;
+    background: #fff;
+    position: relative;
+    padding: 28px 24px 20px;
+    /* Serrated top edge */
+    -webkit-mask-image:
+      radial-gradient(circle at 50% 0%, transparent 6px, white 6px),
+      radial-gradient(ellipse 6px 7px at 0% 0%, white 5px, transparent 6px),
+      radial-gradient(ellipse 6px 7px at 100% 0%, white 5px, transparent 6px);
+    -webkit-mask-size: 12px 12px, 12px 12px, 12px 12px;
+    -webkit-mask-repeat: repeat-x, no-repeat, no-repeat;
+    -webkit-mask-position: 0 0, 0 0, 100% 0;
+    mask-image:
+      radial-gradient(circle at 50% 0%, transparent 6px, white 6px),
+      radial-gradient(ellipse 6px 7px at 0% 0%, white 5px, transparent 6px),
+      radial-gradient(ellipse 6px 7px at 100% 0%, white 5px, transparent 6px);
+    mask-size: 12px 12px, 12px 12px, 12px 12px;
+    mask-repeat: repeat-x, no-repeat, no-repeat;
+    mask-position: 0 0, 0 0, 100% 0;
+    /* Bottom serrated */
+    padding-bottom: 28px;
+  }
+
+  /* Serrated bottom via pseudo element */
+  .receipt-paper::after {
+    content: '';
+    display: block;
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background:
+      radial-gradient(circle at 50% 100%, #d0d0d0 6px, transparent 6px),
+      radial-gradient(circle at 0% 100%, transparent 6px, #fff 6px),
+      radial-gradient(circle at 100% 100%, transparent 6px, #fff 6px);
+    background-size: 12px 12px, 12px 12px, 12px 12px;
+    background-repeat: repeat-x, no-repeat, no-repeat;
+    background-position: 0 0, 0 0, 100% 0;
+  }
+
+  /* ── Typography ──────────────────────────── */
+  .shop-name {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    font-family: Arial, sans-serif;
+  }
+
+  .shop-meta {
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    line-height: 1.7;
+    margin-bottom: 2px;
+  }
+
+  /* ── Star divider ────────────────────────── */
+  .stars {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #333;
+    margin: 10px 0;
+  }
+
+  /* ── Section title ───────────────────────── */
+  .section-title {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 4px 0;
+    font-family: Arial, sans-serif;
+  }
+
+  /* ── Table rows ──────────────────────────── */
+  .receipt-table {
+    width: 100%;
+    font-size: 12px;
+    border-collapse: collapse;
+  }
+
+  .receipt-table .col-hdr {
+    font-weight: 700;
+    font-size: 11px;
+    padding: 3px 0;
+    text-transform: capitalize;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 4px;
+  }
+
+  .receipt-table td {
+    padding: 2px 0;
+    vertical-align: top;
+  }
+
+  .receipt-table td.r { text-align: right; }
+  .receipt-table td.qty { color: #555; font-size: 11px; padding-left: 6px; }
+
+  /* ── Totals section ──────────────────────── */
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 2px 0;
+    font-size: 12px;
+  }
+
+  .total-row.grand {
+    font-size: 17px;
+    font-weight: 900;
+    font-family: Arial, sans-serif;
+    padding: 4px 0 2px;
+  }
+
+  /* ── Barcode placeholder ─────────────────── */
+  .barcode-wrap {
+    text-align: center;
+    margin-top: 14px;
+  }
+
+  .barcode {
+    display: inline-block;
+    height: 40px;
+    overflow: hidden;
+    font-family: 'Libre Barcode 39', monospace;
+    font-size: 40px;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: #111;
+  }
+
+  .barcode-num {
+    font-size: 9px;
+    color: #555;
+    letter-spacing: 2px;
+    margin-top: 2px;
+    font-family: Arial, sans-serif;
+  }
+
+  /* ── Thank you footer ────────────────────── */
+  .thankyou {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: Arial, sans-serif;
+    margin: 4px 0 2px;
+  }
+
+  .footer-note {
+    text-align: center;
+    font-size: 10px;
+    color: #666;
+    margin-top: 3px;
+  }
+
+  /* ── Print button (hidden on print) ─────── */
+  .no-print {
+    margin-top: 24px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .no-print button {
+    padding: 9px 22px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    font-family: Arial, sans-serif;
+  }
+
+  .btn-print { background: #1a1a2e; color: #fff; }
+  .btn-close { background: #e4e4ec; color: #1a1a2e; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .receipt-paper {
+      max-width: 80mm;
+      -webkit-mask-image: none;
+      mask-image: none;
+      padding: 4mm;
+      box-shadow: none;
+    }
+    .receipt-paper::after { display: none; }
+    .no-print { display: none !important; }
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="receipt-paper">
+
+  <!-- Shop header -->
+  <div class="shop-name">{{ sale.shop.name }}</div>
+  <div class="shop-meta">
+    {% if sale.shop.address %}{{ sale.shop.address }}<br>{% endif %}
+    {% if sale.shop.phone %}Telp. {{ sale.shop.phone }}{% endif %}
+  </div>
+
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+  <div class="section-title">Cash Receipt</div>
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+
+  <!-- Sale meta -->
+  <div style="font-size:11px;margin-bottom:6px;line-height:1.8">
+    <div style="display:flex;justify-content:space-between"><span>Date</span><span>{{ sale.created_at|date:"d M Y" }}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Time</span><span>{{ sale.created_at|date:"H:i" }}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Sale #</span><span>{{ sale.sale_number }}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Cashier</span><span>{{ sale.cashier.get_full_name|default:sale.cashier.username }}</span></div>
+    {% if sale.customer %}<div style="display:flex;justify-content:space-between"><span>Customer</span><span>{{ sale.customer.name }}</span></div>{% endif %}
+  </div>
+
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+
+  <!-- Items table -->
+  <table class="receipt-table">
+    <tr class="col-hdr">
+      <td>Description</td>
+      <td class="r">Price</td>
+    </tr>
+    {% for item in sale.items.all %}
+    <tr>
+      <td>
+        {{ item.product.name }}
+        {% if item.variant %}
+          <span style="font-size:10px;color:#666"> ({% for a in item.variant.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %})</span>
+        {% endif %}
+        <span class="qty"> ×{{ item.quantity }}{% if item.product.uom %} {{ item.product.uom.short_name }}{% endif %}</span>
+      </td>
+      <td class="r">{{ item.line_total|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <div class="stars" style="margin-top:8px">* * * * * * * * * * * * * * * * * *</div>
+
+  <!-- Totals -->
+  <div style="margin:4px 0">
+    <div class="total-row grand">
+      <span>Total</span>
+      <span>{{ sale.total|floatformat:0 }}</span>
+    </div>
+    <div class="total-row">
+      <span>{{ sale.get_payment_method_display }}</span>
+      <span>{{ sale.amount_paid|floatformat:0 }}</span>
+    </div>
+    {% if sale.change_given > 0 %}
+    <div class="total-row">
+      <span>Change</span>
+      <span>{{ sale.change_given|floatformat:0 }}</span>
+    </div>
+    {% endif %}
+    <div class="total-row" style="font-size:11px;color:#555">
+      <span>Subtotal</span>
+      <span>{{ sale.subtotal|floatformat:0 }}</span>
+    </div>
+    <div class="total-row" style="font-size:11px;color:#555">
+      <span>Tax ({{ sale.tax_amount|floatformat:0 }})</span>
+      <span>{{ sale.tax_amount|floatformat:0 }}</span>
+    </div>
+  </div>
+
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+
+  <!-- Barcode -->
+  <div class="barcode-wrap">
+    <div class="barcode">*{{ sale.sale_number }}*</div>
+    <div class="barcode-num">{{ sale.sale_number }}</div>
+  </div>
+
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+
+  <!-- Footer -->
+  <div class="thankyou">Thank You!</div>
+  {% with s=sale.shop %}
+  {% with settings=s.settings %}
+  {% if settings.receipt_footer %}
+  <div class="footer-note">{{ settings.receipt_footer }}</div>
+  {% else %}
+  <div class="footer-note">Please come again</div>
+  {% endif %}
+  {% endwith %}
+  {% endwith %}
+
+</div>
+
+<!-- Buttons (hidden on print) -->
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">🖨 Print Receipt</button>
+  <button class="btn-close" onclick="window.close()">Close</button>
+</div>
+
+</body>
+</html>

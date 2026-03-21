@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Profit & Loss{% endblock %}
+{% block page_title %}Reports - Profit &amp; Loss{% endblock %}
+{% block extra_head %}<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+{% include "reports/_nav.html" %}
+<!-- P&L Statement -->
+<div class="card" style="margin-bottom:16px;max-width:600px">
+  <div style="font-size:13px;font-weight:600;margin-bottom:14px">P&amp;L Statement - {{ start }} to {{ end }}</div>
+  <table style="width:100%;font-size:13px">
+    <tr style="background:#f0edfb"><td style="padding:8px;font-weight:600">Revenue</td><td style="padding:8px;text-align:right;font-weight:600">TSh {{ revenue|floatformat:0 }}</td></tr>
+    <tr><td style="padding:6px 8px;color:#6b6b80;padding-left:20px">Less: Cost of Goods Sold</td><td style="padding:6px 8px;text-align:right;color:#9b2626">(TSh {{ cogs|floatformat:0 }})</td></tr>
+    <tr style="background:#e8f5ee;border-top:2px solid #a3d6b5"><td style="padding:8px;font-weight:600;color:#0a3d1f">Gross Profit</td><td style="padding:8px;text-align:right;font-weight:600;color:{% if gross >= 0 %}#0D512B{% else %}#9b2626{% endif %}">TSh {{ gross|floatformat:0 }} <span style="font-size:11px">({{ margin }}% margin)</span></td></tr>
+    <tr><td style="padding:6px 8px;color:#6b6b80;padding-left:20px">Less: Operating Expenses</td><td style="padding:6px 8px;text-align:right;color:#9b2626">(TSh {{ expenses|floatformat:0 }})</td></tr>
+    {% for c in exp_cats %}<tr><td style="padding:3px 8px;color:#6b6b80;font-size:12px;padding-left:36px">{{ c.category__name|default:"Uncategorised" }}</td><td style="padding:3px 8px;text-align:right;color:#6b6b80;font-size:12px">TSh {{ c.total|floatformat:0 }}</td></tr>{% endfor %}
+    <tr style="background:{% if net >= 0 %}#e8f5ee{% else %}#fdeaea{% endif %};border-top:2px solid {% if net >= 0 %}#a3d6b5{% else %}#f5b0b0{% endif %}"><td style="padding:10px 8px;font-weight:700;font-size:14px">Net Profit</td><td style="padding:10px 8px;text-align:right;font-weight:700;font-size:16px;color:{% if net >= 0 %}#0D512B{% else %}#9b2626{% endif %}">TSh {{ net|floatformat:0 }}</td></tr>
+    <tr><td style="padding:6px 8px;color:#6b6b80">Tax collected</td><td style="padding:6px 8px;text-align:right">TSh {{ tax|floatformat:0 }}</td></tr>
+  </table>
+</div>
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px">12-month P&amp;L trend</div>
+  <div style="position:relative;height:160px;width:100%"><canvas id="monthly-chart"></canvas></div>
+</div>
+<script>
+const m = {{ monthly_series|safe }};
+new Chart(document.getElementById('monthly-chart'),{type:'bar',data:{labels:m.map(d=>d.month),datasets:[{label:'Revenue',data:m.map(d=>d.revenue),backgroundColor:'rgba(97,70,193,0.7)',borderRadius:3},{label:'Net Profit',data:m.map(d=>d.net),backgroundColor:m.map(d=>d.net>=0?'rgba(13,81,43,0.7)':'rgba(155,38,38,0.7)'),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'TSh '+Math.round(v).toLocaleString(),font:{size:9}}},x:{ticks:{font:{size:9}}}}}});
+</script>
+{% endblock %}

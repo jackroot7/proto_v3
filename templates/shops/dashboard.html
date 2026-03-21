@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'pos:index' %}" class="btn btn-primary">Open POS</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══ ROW 1: TODAY STATS (4 cards) ════════════════════════════ -->
+<div class="stats-grid" style="margin-bottom:16px">
+
+  <div class="stat-card">
+    <div class="stat-label">Today's Revenue</div>
+    <div class="stat-value">TSh {{ total_sales|floatformat:0 }}</div>
+    <div class="stat-sub">
+      {% if sales_change is not None %}
+        {% if sales_change >= 0 %}
+          <span style="color:#0D512B">▲ {{ sales_change }}%</span>
+        {% else %}
+          <span style="color:#9b2626">▼ {{ sales_change|slice:"1:" }}%</span>
+        {% endif %}
+        vs yesterday
+      {% else %}
+        <span style="color:#6b6b80">No data yesterday</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Today's Profit</div>
+    <div class="stat-value" style="{% if total_profit >= 0 %}color:#0D512B{% else %}color:#9b2626{% endif %}">
+      TSh {{ total_profit|floatformat:0 }}
+    </div>
+    <div class="stat-sub" style="color:#6b6b80">Gross - after cost of goods</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Transactions Today</div>
+    <div class="stat-value">{{ txn_count }}</div>
+    <div class="stat-sub">
+      {% if txn_change is not None %}
+        {% if txn_change >= 0 %}<span style="color:#0D512B">▲ {{ txn_change }}%</span>
+        {% else %}<span style="color:#9b2626">▼ {{ txn_change|slice:"1:" }}%</span>
+        {% endif %}
+        vs yesterday
+      {% else %}<span style="color:#6b6b80">-</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Day Status</div>
+    {% if day_is_open %}
+      <div class="stat-value" style="font-size:15px;color:#0D512B">&#9679; Open</div>
+      <div class="stat-sub" style="color:#6b6b80">Ready for sales</div>
+    {% else %}
+      <div class="stat-value" style="font-size:15px;color:#9b2626">&#9679; Closed</div>
+      <div class="stat-sub">
+        <a href="#" onclick="showOpenDayModal();return false;" style="color:#6146c1;font-size:11px;font-weight:500">Open day →</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ═══ ROW 2: THIS MONTH STRIP ═════════════════════════════════ -->
+<div style="background:#6146c1;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:0">
+  <div style="border-right:1px solid rgba(255,255,255,0.2);padding-right:16px">
+    <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Monthly Revenue</div>
+    <div style="font-size:20px;font-weight:600;color:#fff">TSh {{ monthly_revenue|floatformat:0 }}</div>
+    <div style="font-size:11px;margin-top:2px">
+      {% if revenue_change is not None %}
+        {% if revenue_change >= 0 %}<span style="color:#9be8bc">▲ {{ revenue_change }}%</span>
+        {% else %}<span style="color:#f9b0b0">▼ {{ revenue_change|slice:"1:" }}%</span>{% endif %}
+        <span style="color:rgba(255,255,255,0.5)"> vs last month</span>
+      {% else %}<span style="color:rgba(255,255,255,0.4)">First month</span>{% endif %}
+    </div>
+  </div>
+  <div style="border-right:1px solid rgba(255,255,255,0.2);padding:0 16px">
+    <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Gross Profit</div>
+    <div style="font-size:20px;font-weight:600;color:#fff">TSh {{ monthly_gross|floatformat:0 }}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">After cost of goods</div>
+  </div>
+  <div style="border-right:1px solid rgba(255,255,255,0.2);padding:0 16px">
+    <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Net Profit</div>
+    <div style="font-size:20px;font-weight:600;{% if monthly_net >= 0 %}color:#9be8bc{% else %}color:#f9b0b0{% endif %}">TSh {{ monthly_net|floatformat:0 }}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">After expenses</div>
+  </div>
+  <div style="padding-left:16px">
+    <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Expenses</div>
+    <div style="font-size:20px;font-weight:600;color:#fff">TSh {{ monthly_expenses|floatformat:0 }}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">{{ monthly_txns }} transaction(s)</div>
+  </div>
+</div>
+
+<!-- ═══ ROW 3: CHART + PAYMENT BREAKDOWN ════════════════════════ -->
+<div class="grid-2" style="margin-bottom:16px">
+
+  <!-- Weekly bar chart -->
+  <div class="card">
+    <div class="card-title">
+      Sales - last 7 days
+      <span style="font-size:11px;color:#6b6b80;font-weight:400">TSh per day</span>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:90px" id="weekly-chart"></div>
+    <div style="display:flex;gap:5px;margin-top:4px">
+      {% for d in weekly_data %}
+        <div style="flex:1;font-size:10px;text-align:center;color:#6b6b80">{{ d.date }}</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Payment breakdown today -->
+  <div class="card">
+    <div class="card-title">Payment methods <span style="font-size:11px;color:#6b6b80;font-weight:400">Today</span></div>
+    {% with total_pay=cash_total|add:mpesa_total|add:credit_total %}
+    <!-- Cash -->
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:#6146c1;display:inline-block"></span>Cash
+        </span>
+        <span style="font-weight:500">TSh {{ cash_total|floatformat:0 }}</span>
+      </div>
+      <div style="height:6px;background:#f0f0f2;border-radius:3px">
+        <div style="height:100%;background:#6146c1;border-radius:3px;width:{% if total_pay > 0 %}{% widthratio cash_total total_pay 100 %}{% else %}0{% endif %}%"></div>
+      </div>
+    </div>
+    <!-- M-Pesa -->
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:#0D512B;display:inline-block"></span>M-Pesa
+        </span>
+        <span style="font-weight:500">TSh {{ mpesa_total|floatformat:0 }}</span>
+      </div>
+      <div style="height:6px;background:#f0f0f2;border-radius:3px">
+        <div style="height:100%;background:#0D512B;border-radius:3px;width:{% if total_pay > 0 %}{% widthratio mpesa_total total_pay 100 %}{% else %}0{% endif %}%"></div>
+      </div>
+    </div>
+    <!-- Credit -->
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:#EB5993;display:inline-block"></span>Credit
+        </span>
+        <span style="font-weight:500">TSh {{ credit_total|floatformat:0 }}</span>
+      </div>
+      <div style="height:6px;background:#f0f0f2;border-radius:3px">
+        <div style="height:100%;background:#EB5993;border-radius:3px;width:{% if total_pay > 0 %}{% widthratio credit_total total_pay 100 %}{% else %}0{% endif %}%"></div>
+      </div>
+    </div>
+    {% endwith %}
+
+    {% if total_credit_owed > 0 %}
+    <div style="margin-top:14px;background:#fef3dc;border-radius:7px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px">
+      <span style="color:#7a5010">⚠ {{ credit_customer_count }} customer{{ credit_customer_count|pluralize }} owe money</span>
+      <a href="{% url 'customers:list' %}?debt=1" style="color:#6146c1;font-weight:500;text-decoration:none;font-size:11px">
+        TSh {{ total_credit_owed|floatformat:0 }} →
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ═══ ROW 4: TOP PRODUCTS + STOCK ALERTS ══════════════════════ -->
+<div class="grid-2" style="margin-bottom:16px">
+
+  <!-- Top products this month -->
+  <div class="card">
+    <div class="card-title">
+      Top products this month
+      <span class="badge badge-purple">By quantity sold</span>
+    </div>
+    {% if top_products %}
+    {% with max_qty=top_products.0.total_qty %}
+    {% for p in top_products %}
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="font-weight:500">{{ p.product__name }}</span>
+        <span style="color:#6b6b80">{{ p.total_qty }} {% if p.product__uom__short_name %}{{ p.product__uom__short_name }}{% endif %} - TSh {{ p.total_rev|floatformat:0 }}</span>
+      </div>
+      <div style="height:5px;background:#f0f0f2;border-radius:3px">
+        <div style="height:100%;background:#6146c1;border-radius:3px;width:{% widthratio p.total_qty max_qty 100 %}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endwith %}
+    {% else %}
+    <p style="color:#6b6b80;font-size:13px">No sales this month yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Stock alerts -->
+  <div class="card">
+    <div class="card-title">
+      Stock alerts
+      <div style="display:flex;gap:5px">
+        {% if out_of_stock_count > 0 %}<span class="badge badge-red">{{ out_of_stock_count }} out</span>{% endif %}
+        {% if low_stock_count > 0 %}<span class="badge badge-amber">{{ low_stock_count }} low</span>{% endif %}
+        {% if out_of_stock_count == 0 and low_stock_count == 0 %}<span class="badge badge-green">All good</span>{% endif %}
+      </div>
+    </div>
+    {% if low_stock_items %}
+    {% for item in low_stock_items %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f2;font-size:12px">
+      <div>
+        <span style="font-weight:500">{{ item.product.name }}</span>
+        {% if item.product.uom %}<span style="color:#6b6b80;font-size:10px"> ({{ item.product.uom.short_name }})</span>{% endif %}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:50px;height:4px;background:#f0f0f2;border-radius:2px">
+          <div style="height:100%;border-radius:2px;background:{% if item.quantity <= 0 %}#9b2626{% elif item.is_critical %}#e67e22{% else %}#f9c74f{% endif %};width:{% if item.product.low_stock_threshold > 0 %}{% widthratio item.quantity item.product.low_stock_threshold 100 %}{% else %}0{% endif %}%"></div>
+        </div>
+        <span style="font-weight:600;{% if item.quantity <= 0 %}color:#9b2626{% elif item.is_critical %}color:#e67e22{% else %}color:#f9c74f{% endif %}">
+          {{ item.quantity }}
+        </span>
+        {% if item.quantity <= 0 %}<span class="badge badge-red">Out</span>
+        {% elif item.is_critical %}<span class="badge badge-red">Critical</span>
+        {% else %}<span class="badge badge-amber">Low</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    <div style="margin-top:10px">
+      <a href="{% url 'stock:list' %}?status=low" class="btn btn-outline btn-sm">View all stock issues →</a>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:20px 0;color:#6b6b80">
+      <div style="font-size:24px;margin-bottom:6px">✓</div>
+      <div style="font-size:13px">All products are well stocked</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ═══ ROW 5: HOURLY ACTIVITY + RECENT SALES ═══════════════════ -->
+<div class="grid-2" style="margin-bottom:16px">
+
+  <!-- Hourly activity heatmap -->
+  <div class="card">
+    <div class="card-title">Hourly activity <span style="font-size:11px;color:#6b6b80;font-weight:400">Sales count today</span></div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:4px" id="hourly-chart"></div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:#6b6b80">
+      <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#6b6b80">
+      {% with peak_hour=hourly_data %}
+      Peak selling hours shown above - darker = more sales
+      {% endwith %}
+    </div>
+  </div>
+
+  <!-- Recent sales -->
+  <div class="card">
+    <div class="card-title">
+      Recent sales
+      <a href="{% url 'pos:history' %}" style="font-size:11px;color:#6146c1;font-weight:400;text-decoration:none">View all →</a>
+    </div>
+    {% if recent_sales %}
+    {% for sale in recent_sales %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f2;font-size:12px">
+      <div>
+        <div style="font-weight:500">{{ sale.sale_number }}</div>
+        <div style="font-size:10px;color:#6b6b80">{{ sale.created_at|date:"H:i" }} - {% if sale.customer %}{{ sale.customer.name }}{% else %}Walk-in{% endif %}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:600;color:#6146c1">TSh {{ sale.total|floatformat:0 }}</div>
+        <div style="font-size:10px">
+          {% if sale.payment_method == 'cash' %}<span class="badge badge-gray">Cash</span>
+          {% elif sale.payment_method == 'mpesa' %}<span class="badge badge-green">M-Pesa</span>
+          {% else %}<span class="badge badge-pink">Credit</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="color:#6b6b80;font-size:13px;padding:10px 0">No sales today yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ═══ ROW 6: RECOMMENDATIONS + QUICK ACTIONS ══════════════════ -->
+<div class="grid-2">
+
+  <!-- AI Recommendations -->
+  <div class="card">
+    <div class="card-title">
+      Smart recommendations
+      <span class="badge badge-purple">AI</span>
+    </div>
+    {% if recommendations %}
+    {% for rec in recommendations %}
+    <div style="background:{{ rec.bg }};border-radius:8px;padding:11px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px">
+      <div style="width:8px;height:8px;border-radius:50%;background:{{ rec.color }};flex-shrink:0;margin-top:4px"></div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:{{ rec.color }}">{{ rec.title }}</div>
+        <div style="font-size:11px;color:#6b6b80;margin-top:2px;line-height:1.5">{{ rec.body }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align:center;padding:16px 0;color:#6b6b80;font-size:13px">
+      Everything looks good - no actions needed right now.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Quick actions (card grid) -->
+  <div class="card">
+    <div class="card-title">Quick actions</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+      <a href="{% url 'pos:index' %}" style="text-decoration:none">
+        <div style="background:#f0edfb;border:1px solid #c4b8f0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:background .12s" onmouseover="this.style.background='#e6e0f8'" onmouseout="this.style.background='#f0edfb'">
+          <div style="width:36px;height:36px;background:#6146c1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🖥</div>
+          <div><div style="font-size:11px;font-weight:600;color:#3d2a8f">Point of Sale</div><div style="font-size:10px;color:#7060a8;margin-top:1px">Sell products</div></div>
+        </div>
+      </a>
+
+      <a href="{% url 'expenses:create' %}" style="text-decoration:none">
+        <div style="background:#fef3dc;border:1px solid #f9c74f;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:background .12s" onmouseover="this.style.background='#fdecc0'" onmouseout="this.style.background='#fef3dc'">
+          <div style="width:36px;height:36px;background:#e67e22;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">💸</div>
+          <div><div style="font-size:11px;font-weight:600;color:#7a5010">Record Expense</div><div style="font-size:10px;color:#a06818;margin-top:1px">Log a cost</div></div>
+        </div>
+      </a>
+
+      <a href="{% url 'purchases:create' %}" style="text-decoration:none">
+        <div style="background:#e8f5ee;border:1px solid #a3d6b5;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:background .12s" onmouseover="this.style.background='#d4edde'" onmouseout="this.style.background='#e8f5ee'">
+          <div style="width:36px;height:36px;background:#0D512B;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📦</div>
+          <div><div style="font-size:11px;font-weight:600;color:#0a3d1f">Purchase Order</div><div style="font-size:10px;color:#1a6b3a;margin-top:1px">Order stock</div></div>
+        </div>
+      </a>
+
+      <a href="{% url 'reports:dashboard' %}" style="text-decoration:none">
+        <div style="background:#e6f1fb;border:1px solid #85b7eb;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:background .12s" onmouseover="this.style.background='#d0e6f7'" onmouseout="this.style.background='#e6f1fb'">
+          <div style="width:36px;height:36px;background:#185fa5;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📈</div>
+          <div><div style="font-size:11px;font-weight:600;color:#0c447c">Reports</div><div style="font-size:10px;color:#1565b5;margin-top:1px">P&amp;L analysis</div></div>
+        </div>
+      </a>
+
+      <a href="{% url 'customers:list' %}?debt=1" style="text-decoration:none">
+        <div style="background:#fdeaea;border:1px solid #f5b0b0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:background .12s" onmouseover="this.style.background='#f9d2d2'" onmouseout="this.style.background='#fdeaea'">
+          <div style="width:36px;height:36px;background:#9b2626;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">⚠️</div>
+          <div><div style="font-size:11px;font-weight:600;color:#7a1f1f">Debts</div><div style="font-size:10px;color:#a03030;margin-top:1px">{{ credit_customer_count }} customer{{ credit_customer_count|pluralize }}</div></div>
+        </div>
+      </a>
+
+      <a href="{% url 'stock:take_create' %}" style="text-decoration:none">
+        <div style="background:#fde8f1;border:1px solid #f4b8d8;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;transition:background .12s" onmouseover="this.style.background='#f8d0e5'" onmouseout="this.style.background='#fde8f1'">
+          <div style="width:36px;height:36px;background:#EB5993;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📋</div>
+          <div><div style="font-size:11px;font-weight:600;color:#8f1f52">Stock-Take</div><div style="font-size:10px;color:#b52d68;margin-top:1px">Count inventory</div></div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Weekly bar chart ──────────────────────────
+const wData = {{ weekly_data|safe }};
+const wMax  = Math.max(...wData.map(d => d.total), 1);
+const wChart = document.getElementById('weekly-chart');
+if (wChart) {
+  wData.forEach(d => {
+    const bar = document.createElement('div');
+    const h = Math.max(Math.round((d.total / wMax) * 85), d.total > 0 ? 4 : 2);
+    bar.style.cssText = 'flex:1;background:#6146c1;border-radius:3px 3px 0 0;height:' + h + 'px;cursor:default';
+    bar.title = d.date + ': TSh ' + Math.round(d.total).toLocaleString();
+    wChart.appendChild(bar);
+  });
+}
+
+// ── Hourly activity chart ────────────────────
+const hData  = {{ hourly_data|safe }};
+const hMax   = Math.max(...hData, 1);
+const hChart = document.getElementById('hourly-chart');
+if (hChart) {
+  hData.forEach((count, hour) => {
+    const bar = document.createElement('div');
+    const h = Math.max(Math.round((count / hMax) * 55), count > 0 ? 4 : 2);
+    const intensity = Math.round((count / hMax) * 255);
+    const g = Math.round(70 + (count / hMax) * 40);
+    const alpha = count > 0 ? 0.25 + (count / hMax) * 0.75 : 0.1;
+    bar.style.cssText = 'flex:1;border-radius:2px 2px 0 0;height:' + h + 'px;background:rgba(97,70,193,' + alpha.toFixed(2) + ')';
+    bar.title = hour + ':00 - ' + count + ' sale' + (count !== 1 ? 's' : '');
+    hChart.appendChild(bar);
+  });
+}
+</script>
+
+{% endblock %}

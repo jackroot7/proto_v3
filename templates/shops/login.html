@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - Proto v3</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo-icon.svg">
+  <link rel="stylesheet" href="/static/css/proto.css">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="/static/img/logo.svg" alt="Proto v3" style="height:52px;width:auto;">
+    </div>
+
+    <div class="login-box">
+      <h2>Welcome back</h2>
+      <p class="subtitle">Sign in to continue to your shop</p>
+
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{{ msg.tags }}" style="margin-bottom:14px">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" value="{{ form.username.value|default:'' }}" placeholder="Enter your username" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">
+          Sign in &rarr;
+        </button>
+      </form>
+      <p style="text-align:center;margin-top:16px;font-size:11px;color:#6b6b80;">
+        Proto v3 &mdash; Running locally on this device
+      </p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

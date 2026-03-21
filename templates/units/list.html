@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Units of Measure{% endblock %}
+{% block page_title %}Units of Measure{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'units:create' %}" class="btn btn-primary btn-sm">+ Add Unit</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <p style="font-size:13px;color:#6b6b80;margin-bottom:14px;line-height:1.6">
+    Units of Measure control how products are counted and displayed - e.g. selling <strong>Shea Butter</strong> in <strong>ml</strong>,
+    <strong>Rice</strong> in <strong>kg</strong>, or <strong>T-Shirts</strong> in <strong>pieces</strong>.
+    The short name appears on receipts and POS.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Short Name</th><th>Allow Decimals</th><th>Products Using</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for u in units %}
+        <tr>
+          <td style="font-weight:500">{{ u.name }}</td>
+          <td><span class="badge badge-purple">{{ u.short_name }}</span></td>
+          <td>
+            {% if u.allow_decimals %}
+              <span class="badge badge-green">Yes - e.g. 0.5 {{ u.short_name }}</span>
+            {% else %}
+              <span class="badge badge-gray">No - whole units only</span>
+            {% endif %}
+          </td>
+          <td style="color:#6b6b80">{{ u.products.count }}</td>
+          <td>{% if u.is_active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Inactive</span>{% endif %}</td>
+          <td><a href="{% url 'units:edit' u.pk %}" class="btn btn-outline btn-sm">Edit</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:28px;color:#6b6b80">
+          No units yet. <a href="{% url 'units:create' %}">Add your first unit</a>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

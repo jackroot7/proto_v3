@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Stock{% endblock %}
+{% block page_title %}Stock Management{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'stock:take_create' %}" class="btn btn-outline btn-sm">Start Stock-Take</a>
+  <a href="{% url 'stock:movements' %}" class="btn btn-outline btn-sm">Movements</a>
+{% endblock %}
+{% block content %}
+<div class="stats-grid cols-3">
+  <div class="stat-card"><div class="stat-label">Total Stock Value</div><div class="stat-value">TSh {{ total_value|floatformat:0 }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total SKUs</div><div class="stat-value">{{ levels|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Low/Critical Items</div><div class="stat-value" style="color:#9b2626">{% for l in levels %}{% if l.is_low %}{% if not forloop.last %}{% endif %}{% endif %}{% endfor %}</div></div>
+</div>
+<div class="card">
+  <div class="search-bar">
+    <form method="get" style="display:contents">
+      <input type="search" name="q" value="{{ search }}" placeholder="Search products...">
+      <select name="status" onchange="this.form.submit()" style="width:150px">
+        <option value="">All Stock</option>
+        <option value="low" {% if status_filter == 'low' %}selected{% endif %}>Low Stock</option>
+        <option value="critical" {% if status_filter == 'critical' %}selected{% endif %}>Critical</option>
+      </select>
+      <button class="btn btn-outline btn-sm" type="submit">Filter</button>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Product</th><th>Category</th><th>UOM</th><th>Variant</th><th>Qty</th><th>Min Threshold</th><th>Value</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for l in levels %}
+        <tr>
+          <td style="font-weight:500">{{ l.product.name }}</td>
+          <td style="color:#6b6b80">{{ l.product.category.name|default:"-" }}</td>
+          <td>{% if l.product.uom %}<span class="badge badge-purple">{{ l.product.uom.short_name }}</span>{% else %}<span style="color:#6b6b80">-</span>{% endif %}</td>
+          <td style="font-size:12px;color:#6b6b80">{{ l.variant|default:"-" }}</td>
+          <td style="font-weight:600" class="{% if l.is_critical %}stock-critical{% elif l.is_low %}stock-warning{% else %}stock-good{% endif %}">{{ l.quantity }}</td>
+          <td style="color:#6b6b80">{{ l.product.low_stock_threshold }}</td>
+          <td>TSh {{ l.quantity|floatformat:0 }}</td>
+          <td>
+            {% if l.is_critical %}<span class="badge badge-red">Critical</span>
+            {% elif l.is_low %}<span class="badge badge-amber">Low</span>
+            {% else %}<span class="badge badge-green">Good</span>{% endif %}
+          </td>
+          <td><a href="{% url 'stock:adjust' l.product.pk %}" class="btn btn-outline btn-sm">Adjust</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;padding:28px;color:#6b6b80">No stock records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% include "_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

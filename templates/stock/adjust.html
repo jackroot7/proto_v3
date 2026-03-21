@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Adjust Stock{% endblock %}
+{% block page_title %}Adjust Stock - {{ product.name }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'stock:list' %}" class="btn btn-outline btn-sm">← Back to Stock</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="align-items:start">
+
+  <!-- Adjustment form -->
+  <div class="card">
+    <form method="post" id="adjust-form">
+      {% csrf_token %}
+
+      <!-- Direction toggle -->
+      <div class="form-group">
+        <label>What are you doing?</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+          <label id="lbl-add" style="border:2px solid #0D512B;border-radius:8px;padding:12px;cursor:pointer;background:#e8f5ee;display:flex;align-items:center;gap:10px">
+            <input type="radio" name="direction" value="add" checked onchange="switchDir(this.value)" style="width:auto">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#0a3d1f">➕ Add Stock</div>
+              <div style="font-size:11px;color:#1a6b3a;margin-top:1px">Increase quantity</div>
+            </div>
+          </label>
+          <label id="lbl-reduce" style="border:2px solid #e4e4ec;border-radius:8px;padding:12px;cursor:pointer;background:#fff;display:flex;align-items:center;gap:10px">
+            <input type="radio" name="direction" value="reduce" onchange="switchDir(this.value)" style="width:auto">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#7a1f1f">➖ Reduce Stock</div>
+              <div style="font-size:11px;color:#a03030;margin-top:1px">Decrease quantity</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Reason -->
+      <div class="form-group">
+        <label>Reason</label>
+        <select name="movement_type" id="reason-select" onchange="updateReasonHint()">
+          <!-- Add reasons -->
+          <optgroup label="Adding stock" id="opts-add">
+            <option value="opening">Opening / Starting Stock</option>
+            <option value="return">Customer Return</option>
+            <option value="found">Found (miscounted earlier)</option>
+            <option value="transfer_in">Transfer In (from another shop)</option>
+          </optgroup>
+          <!-- Reduce reasons (hidden initially) -->
+          <optgroup label="Reducing stock" id="opts-reduce" style="display:none">
+            <option value="damage">Damaged goods</option>
+            <option value="expired">Expired / spoiled</option>
+            <option value="theft">Theft / loss</option>
+            <option value="write_off">Write-off (accounting)</option>
+            <option value="transfer_out">Transfer Out (to another shop)</option>
+          </optgroup>
+        </select>
+        <div id="reason-hint" class="field-hint" style="margin-top:4px"></div>
+      </div>
+
+      <!-- Quantity -->
+      <div class="form-group">
+        <label>Quantity <span id="qty-label-suffix" style="color:#0a3d1f;font-size:11px">(units to add)</span></label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="qty-sign" style="font-size:20px;font-weight:700;color:#0D512B;width:20px">+</span>
+          <input type="number" name="quantity" id="qty-input" min="1"
+                 placeholder="Enter quantity" required
+                 style="flex:1;font-size:16px;font-weight:500">
+          {% if product.uom %}
+          <span style="font-size:13px;color:#6b6b80;flex-shrink:0">{{ product.uom.short_name }}</span>
+          {% endif %}
+        </div>
+        <div id="qty-warning" style="display:none;background:#fdeaea;border:1px solid #f5b0b0;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#7a1f1f"></div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-group">
+        <label>Notes <span class="field-hint">- optional but recommended</span></label>
+        <textarea name="notes" rows="2" placeholder="e.g. Found 3 extra units in back storage, 2 units had broken packaging..."></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button type="submit" class="btn btn-primary" id="submit-btn">Save Adjustment</button>
+        <a href="{% url 'stock:list' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Product info panel -->
+  <div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">Current stock</div>
+      <div style="text-align:center;padding:16px 0">
+        <div style="font-size:40px;font-weight:700;color:{% if stock_level.quantity <= 0 %}#9b2626{% elif stock_level.is_critical %}#e67e22{% else %}#6146c1{% endif %}">
+          {{ stock_level.quantity }}
+        </div>
+        <div style="font-size:13px;color:#6b6b80;margin-top:4px">
+          {{ product.uom.name|default:"units" }} in stock
+        </div>
+        {% if stock_level.quantity <= 0 %}
+          <span class="badge badge-red" style="margin-top:8px">Out of stock</span>
+        {% elif stock_level.is_critical %}
+          <span class="badge badge-red" style="margin-top:8px">Critical - below threshold</span>
+        {% elif stock_level.is_low %}
+          <span class="badge badge-amber" style="margin-top:8px">Low stock warning</span>
+        {% else %}
+          <span class="badge badge-green" style="margin-top:8px">Healthy stock</span>
+        {% endif %}
+      </div>
+      <table style="width:100%;font-size:12px">
+        <tr><td style="color:#6b6b80;padding:4px 0">Product</td><td style="font-weight:500">{{ product.name }}</td></tr>
+        <tr><td style="color:#6b6b80;padding:4px 0">Category</td><td>{{ product.category.name|default:"-" }}</td></tr>
+        <tr><td style="color:#6b6b80;padding:4px 0">Unit</td><td>{{ product.uom.name|default:"-" }}</td></tr>
+        <tr><td style="color:#6b6b80;padding:4px 0">Alert threshold</td><td>{{ product.low_stock_threshold }} {{ product.uom.short_name|default:"units" }}</td></tr>
+        <tr><td style="color:#6b6b80;padding:4px 0">Buying price</td><td>TSh {{ product.buying_price|floatformat:0 }}</td></tr>
+      </table>
+    </div>
+
+    <!-- Preview -->
+    <div class="card" style="background:#f7f7f8;border-color:#e4e4ec">
+      <div class="card-title" style="font-size:12px">Adjustment preview</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;font-family:monospace;font-size:14px">
+        <span id="prev-before" style="color:#6b6b80">{{ stock_level.quantity }}</span>
+        <span id="prev-sign" style="font-size:20px;font-weight:700;color:#0D512B">+</span>
+        <span id="prev-qty" style="font-size:18px;font-weight:600;color:#6146c1">?</span>
+        <span style="color:#6b6b80">=</span>
+        <span id="prev-after" style="font-size:18px;font-weight:700;color:#1a1a2e">{{ stock_level.quantity }}</span>
+      </div>
+      <div style="text-align:center;font-size:11px;color:#6b6b80">New stock level after adjustment</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const currentStock = {{ stock_level.quantity }};
+
+const hints = {
+  opening:      'Set the initial stock level for a new product.',
+  return:       'A customer brought back goods - adding them back to stock.',
+  found:        'Units discovered that were not counted previously.',
+  transfer_in:  'Stock arriving from another shop or location.',
+  damage:       'Units that are broken and cannot be sold.',
+  expired:      'Products past their expiry date or spoiled.',
+  theft:        'Units missing due to theft or unexplained loss.',
+  write_off:    'Removing stock for accounting or end-of-life purposes.',
+  transfer_out: 'Stock being sent to another shop or location.',
+};
+
+function switchDir(dir) {
+  const isAdd = dir === 'add';
+  const lblAdd    = document.getElementById('lbl-add');
+  const lblReduce = document.getElementById('lbl-reduce');
+  const optsAdd    = document.getElementById('opts-add');
+  const optsReduce = document.getElementById('opts-reduce');
+  const sign       = document.getElementById('qty-sign');
+  const suffix     = document.getElementById('qty-label-suffix');
+  const submitBtn  = document.getElementById('submit-btn');
+
+  if (isAdd) {
+    lblAdd.style.cssText    = 'border:2px solid #0D512B;border-radius:8px;padding:12px;cursor:pointer;background:#e8f5ee;display:flex;align-items:center;gap:10px';
+    lblReduce.style.cssText = 'border:2px solid #e4e4ec;border-radius:8px;padding:12px;cursor:pointer;background:#fff;display:flex;align-items:center;gap:10px';
+    sign.textContent  = '+';
+    sign.style.color  = '#0D512B';
+    suffix.textContent = '(units to add)';
+    suffix.style.color = '#0a3d1f';
+    optsAdd.style.display    = '';
+    optsReduce.style.display = 'none';
+    // Switch select to first add option
+    document.getElementById('reason-select').selectedIndex = 0;
+    submitBtn.style.background = '#6146c1';
+  } else {
+    lblAdd.style.cssText    = 'border:2px solid #e4e4ec;border-radius:8px;padding:12px;cursor:pointer;background:#fff;display:flex;align-items:center;gap:10px';
+    lblReduce.style.cssText = 'border:2px solid #9b2626;border-radius:8px;padding:12px;cursor:pointer;background:#fdeaea;display:flex;align-items:center;gap:10px';
+    sign.textContent  = '−';
+    sign.style.color  = '#9b2626';
+    suffix.textContent = '(units to remove)';
+    suffix.style.color = '#9b2626';
+    optsAdd.style.display    = 'none';
+    optsReduce.style.display = '';
+    // Switch select to first reduce option
+    const sel = document.getElementById('reason-select');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].parentElement.id === 'opts-reduce') {
+        sel.selectedIndex = i;
+        break;
+      }
+    }
+    submitBtn.style.background = '#9b2626';
+  }
+  updateReasonHint();
+  updatePreview();
+}
+
+function updateReasonHint() {
+  const sel  = document.getElementById('reason-select');
+  const hint = document.getElementById('reason-hint');
+  hint.textContent = hints[sel.value] || '';
+}
+
+function updatePreview() {
+  const dir    = document.querySelector('input[name="direction"]:checked')?.value || 'add';
+  const qty    = parseInt(document.getElementById('qty-input').value) || 0;
+  const delta  = dir === 'add' ? qty : -qty;
+  const after  = currentStock + delta;
+  const warn   = document.getElementById('qty-warning');
+
+  document.getElementById('prev-sign').textContent  = dir === 'add' ? '+' : '−';
+  document.getElementById('prev-sign').style.color  = dir === 'add' ? '#0D512B' : '#9b2626';
+  document.getElementById('prev-qty').textContent   = qty || '?';
+  document.getElementById('prev-after').textContent = isNaN(after) || qty === 0 ? currentStock : after;
+
+  if (dir === 'reduce' && qty > currentStock) {
+    warn.style.display = 'block';
+    warn.textContent   = `⚠ Cannot reduce by ${qty} - only ${currentStock} in stock. Maximum is ${currentStock}.`;
+    document.getElementById('submit-btn').disabled = true;
+  } else {
+    warn.style.display = 'none';
+    document.getElementById('submit-btn').disabled = false;
+  }
+}
+
+document.getElementById('qty-input').addEventListener('input', updatePreview);
+updateReasonHint();
+</script>
+{% endblock %}

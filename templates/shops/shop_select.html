@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Select Shop - Proto v3</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo-icon.svg">
+  <link rel="stylesheet" href="/static/css/proto.css">
+</head>
+<body>
+<div class="shop-select-page">
+  <div class="shop-select-card">
+    <div style="margin-bottom:24px;">
+      <img src="/static/img/logo.svg" alt="Proto v3" style="height:48px;width:auto;">
+    </div>
+
+    <div style="border:1px solid #e4e4ec;border-radius:14px;padding:28px">
+      <h2 style="font-size:17px;font-weight:600;margin-bottom:4px">
+        Good {{ hour_greeting }}, {{ request.user.first_name|default:request.user.username }}
+      </h2>
+      <p style="font-size:13px;color:#6b6b80;margin-bottom:20px">
+        Choose which shop you are working in today.
+      </p>
+
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{{ msg.tags }}" style="margin-bottom:14px">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" action="{% url 'shop_select' %}">
+        {% csrf_token %}
+        <div class="shop-cards-grid">
+          {% for access in accessible_shops %}
+          <button type="submit" name="shop_id" value="{{ access.shop.id }}" class="shop-card-btn">
+            <div class="icon">
+              {% if access.shop.shop_type == 'handbags' %}👜
+              {% elif access.shop.shop_type == 'hair' %}💆
+              {% elif access.shop.shop_type == 'home' %}🏠
+              {% else %}🏪{% endif %}
+            </div>
+            <div class="name">{{ access.shop.name }}</div>
+            <div class="role">{{ access.role|capfirst }}</div>
+          </button>
+          {% endfor %}
+        </div>
+      </form>
+
+      <div style="text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #e4e4ec">
+        <a href="{% url 'logout' %}" style="font-size:12px;color:#6b6b80;text-decoration:none">
+          Sign out ({{ request.user.username }})
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

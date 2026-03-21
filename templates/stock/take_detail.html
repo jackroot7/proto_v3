@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Stock-Take{% endblock %}
+{% block page_title %}Stock-Take - {{ take.date }}{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Product</th><th>System Qty</th><th>Counted Qty</th><th>Discrepancy</th></tr></thead>
+        <tbody>
+          {% for item in take.items.all %}
+          <tr>
+            <td style="font-weight:500">{{ item.product.name }}</td>
+            <td style="color:#6b6b80">{{ item.system_quantity }}</td>
+            <td><input type="number" name="item_{{ item.pk }}" value="{{ item.counted_quantity|default:'' }}" style="width:100px" placeholder="Count..."></td>
+            <td style="font-weight:500;{% if item.discrepancy < 0 %}color:#9b2626{% elif item.discrepancy > 0 %}color:#0D512B{% endif %}">
+              {% if item.counted_quantity is not None %}{% if item.discrepancy > 0 %}+{% endif %}{{ item.discrepancy }}{% else %}-{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button type="submit" class="btn btn-outline">Save Progress</button>
+      <button type="submit" name="complete" value="1" class="btn btn-primary">Complete & Apply Adjustments</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'reports:export_pdf' %}?period={{ period }}" class="btn btn-outline btn-sm">Export PDF</a>
+{% endblock %}
+{% block content %}
+<div class="pill-tabs">
+  <a href="?period=today" class="pill-tab {% if period == 'today' %}active{% endif %}">Today</a>
+  <a href="?period=week" class="pill-tab {% if period == 'week' %}active{% endif %}">This Week</a>
+  <a href="?period=month" class="pill-tab {% if period == 'month' %}active{% endif %}">This Month</a>
+  <a href="?period=year" class="pill-tab {% if period == 'year' %}active{% endif %}">This Year</a>
+</div>
+<div style="font-size:12px;color:#6b6b80;margin-bottom:14px">
+  Showing: {{ start }} - {{ end }} &nbsp;|&nbsp; {{ transaction_count }} transaction(s)
+</div>
+<div class="stats-grid">
+  <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value">TSh {{ revenue|floatformat:0 }}</div></div>
+  <div class="stat-card"><div class="stat-label">Cost of Goods</div><div class="stat-value">TSh {{ cogs|floatformat:0 }}</div></div>
+  <div class="stat-card"><div class="stat-label">Gross Profit</div><div class="stat-value" style="color:#0D512B">TSh {{ gross_profit|floatformat:0 }}</div></div>
+  <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" style="color:{% if net_profit >= 0 %}#0D512B{% else %}#9b2626{% endif %}">TSh {{ net_profit|floatformat:0 }}</div></div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Payment Methods</div>
+    {% with total=cash|add:mpesa|add:credit %}
+    <div class="mini-bar"><div class="mini-bar-label">Cash</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:{% if total > 0 %}{% widthratio cash total 100 %}{% else %}0{% endif %}%"></div></div><div class="mini-bar-val">TSh {{ cash|floatformat:0 }}</div></div>
+    <div class="mini-bar"><div class="mini-bar-label">M-Pesa</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:{% if total > 0 %}{% widthratio mpesa total 100 %}{% else %}0{% endif %}%;background:#0D512B"></div></div><div class="mini-bar-val">TSh {{ mpesa|floatformat:0 }}</div></div>
+    <div class="mini-bar"><div class="mini-bar-label">Credit</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:{% if total > 0 %}{% widthratio credit total 100 %}{% else %}0{% endif %}%;background:#EB5993"></div></div><div class="mini-bar-val">TSh {{ credit|floatformat:0 }}</div></div>
+    {% endwith %}
+  </div>
+  <div class="card">
+    <div class="card-title">Tax Summary (VAT 18%)</div>
+    <table>
+      <tr><td style="color:#6b6b80">Taxable Sales</td><td style="text-align:right;font-weight:500">TSh {{ revenue|floatformat:0 }}</td></tr>
+      <tr><td style="color:#6b6b80">Tax Collected</td><td style="text-align:right;font-weight:500">TSh {{ tax_collected|floatformat:0 }}</td></tr>
+      <tr style="border-top:1px solid #e4e4ec"><td style="padding-top:8px">Tax Payable</td><td style="text-align:right;font-weight:600;color:#9b2626;padding-top:8px">TSh {{ tax_collected|floatformat:0 }}</td></tr>
+    </table>
+  </div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Top Products</div>
+    {% for p in top_products %}
+    <div class="mini-bar">
+      <div class="mini-bar-label">{{ p.product__name }}</div>
+      <div class="mini-bar-track"><div class="mini-bar-fill" style="width:{{ p.qty }}px;max-width:100%"></div></div>
+      <div class="mini-bar-val">{{ p.qty }} sold</div>
+    </div>
+    {% empty %}<p style="color:#6b6b80;font-size:13px">No sales in this period.</p>{% endfor %}
+  </div>
+  <div class="card">
+    <div class="card-title">Expenses by Category</div>
+    {% for e in exp_by_cat %}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e4e4ec;font-size:13px">
+      <span>{{ e.category__name|default:"Other" }}</span>
+      <span style="font-weight:500">TSh {{ e.total|floatformat:0 }}</span>
+    </div>
+    {% empty %}<p style="color:#6b6b80;font-size:13px">No expenses recorded.</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}

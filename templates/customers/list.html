@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block topbar_actions %}<a href="{% url 'customers:create' %}" class="btn btn-primary btn-sm">+ New Customer</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="search-bar">
+    <form method="get" style="display:contents">
+      <input type="search" name="q" value="{{ search }}" placeholder="Search customers...">
+      <a href="?debt=1" class="btn btn-outline btn-sm" style="white-space:nowrap">Show Debts Only</a>
+      <button class="btn btn-outline btn-sm" type="submit">Search</button>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Total Purchases</th><th>Outstanding Debt</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td style="font-weight:500">{{ c.name }}</td>
+          <td style="color:#6b6b80">{{ c.phone|default:"-" }}</td>
+          <td>TSh {{ c.sales.all|length|default:"0" }}</td>
+          <td style="font-weight:{% if c.has_debt %}600{% else %}400{% endif %};color:{% if c.has_debt %}#9b2626{% else %}#6b6b80{% endif %}">
+            {% if c.has_debt %}TSh {{ c.credit_balance|floatformat:0 }}{% else %}Clear{% endif %}
+          </td>
+          <td>{% if c.has_debt %}<span class="badge badge-red">Debt</span>{% else %}<span class="badge badge-green">Clear</span>{% endif %}</td>
+          <td><a href="{% url 'customers:detail' c.pk %}" class="btn btn-outline btn-sm">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:28px;color:#6b6b80">No customers found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% include "_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

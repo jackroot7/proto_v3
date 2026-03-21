@@ -1,0 +1,33 @@
+{% if page_obj.has_other_pages %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+  <div style="font-size:12px;color:#6b6b80">
+    Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
+  </div>
+  <div style="display:flex;gap:4px;align-items:center">
+    {% if page_obj.has_previous %}
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1"
+         style="padding:5px 10px;border:1px solid #e4e4ec;border-radius:5px;font-size:12px;text-decoration:none;color:#6b6b80;background:#fff">«</a>
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+         style="padding:5px 10px;border:1px solid #e4e4ec;border-radius:5px;font-size:12px;text-decoration:none;color:#6b6b80;background:#fff">‹ Prev</a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+        <span style="padding:5px 10px;border:1px solid #6146c1;border-radius:5px;font-size:12px;background:#6146c1;color:#fff;font-weight:500">{{ num }}</span>
+      {% elif num == 1 or num == page_obj.paginator.num_pages or num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+        <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ num }}"
+           style="padding:5px 10px;border:1px solid #e4e4ec;border-radius:5px;font-size:12px;text-decoration:none;color:#6b6b80;background:#fff">{{ num }}</a>
+      {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+        <span style="padding:5px 4px;font-size:12px;color:#6b6b80">…</span>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+         style="padding:5px 10px;border:1px solid #e4e4ec;border-radius:5px;font-size:12px;text-decoration:none;color:#6b6b80;background:#fff">Next ›</a>
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
+         style="padding:5px 10px;border:1px solid #e4e4ec;border-radius:5px;font-size:12px;text-decoration:none;color:#6b6b80;background:#fff">»</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
