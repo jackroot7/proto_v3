@@ -286,15 +286,19 @@ def _apply_sync_payload(model, operation, payload):
         return 'created'
 
     elif model == 'StockMovement':
-        from stock.models import StockMovement
-        from products.models import Product
+        from stock.models import StockMovement, StockLevel
+        from products.models import Product, ProductVariant
         from shops.models import Shop
         shop    = Shop.objects.filter(id=payload['shop_id']).first()
         product = Product.objects.filter(id=payload['product_id']).first()
         if not shop or not product:
             raise Exception('Shop or product not found')
+        variant = None
+        if payload.get('variant_id'):
+            variant = ProductVariant.objects.filter(id=payload['variant_id']).first()
+        # Record the movement
         StockMovement.objects.create(
-            shop=shop, product=product,
+            shop=shop, product=product, variant=variant,
             movement_type=payload['movement_type'],
             quantity=payload['quantity'],
             quantity_before=payload['quantity_before'],
@@ -302,7 +306,33 @@ def _apply_sync_payload(model, operation, payload):
             reference=payload.get('reference', ''),
             notes=payload.get('notes', ''),
         )
+        # Apply the stock level change on the cloud side
+        sl, _ = StockLevel.objects.get_or_create(
+            shop=shop, product=product, variant=variant,
+            defaults={'quantity': 0}
+        )
+        sl.quantity = payload['quantity_after']
+        sl.save(update_fields=['quantity'])
         return 'created'
+
+    elif model == 'StockLevel':
+        from stock.models import StockLevel
+        from products.models import Product, ProductVariant
+        from shops.models import Shop
+        shop    = Shop.objects.filter(id=payload['shop_id']).first()
+        product = Product.objects.filter(id=payload['product_id']).first()
+        if not shop or not product:
+            raise Exception('Shop or product not found')
+        variant = None
+        if payload.get('variant_id'):
+            variant = ProductVariant.objects.filter(id=payload['variant_id']).first()
+        sl, _ = StockLevel.objects.get_or_create(
+            shop=shop, product=product, variant=variant,
+            defaults={'quantity': 0}
+        )
+        sl.quantity = payload['quantity']
+        sl.save(update_fields=['quantity'])
+        return 'upserted'
 
     elif model == 'Customer':
         from customers.models import Customer
@@ -347,6 +377,3 @@ def _apply_sync_payload(model, operation, payload):
 
     else:
         return f'unknown model {model!r} — skipped'
-    
-
-    

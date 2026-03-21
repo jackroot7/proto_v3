@@ -79,7 +79,7 @@ def pos_index(request):
 @login_required
 @require_POST
 def process_sale(request):
-    """Ajax endpoint - processes a complete sale transaction."""
+    """Ajax endpoint — processes a complete sale transaction."""
     shop = get_current_shop(request)
     if not shop:
         return JsonResponse({'success': False, 'error': 'No shop selected'}, status=400)
@@ -197,7 +197,7 @@ def process_sale(request):
                 sl.quantity -= item['quantity']
                 sl.save()
 
-                StockMovement.objects.create(
+                sm = StockMovement.objects.create(
                     product=item['product'],
                     variant=item['variant'],
                     shop=shop,
@@ -208,8 +208,11 @@ def process_sale(request):
                     reference=sale.sale_number,
                     created_by=request.user,
                 )
+                from sync_engine.utils import queue_for_sync
+                queue_for_sync(sm, 'create')
+                queue_for_sync(sl, 'update')
 
-        # Handle credit - update customer balance
+        # Handle credit — update customer balance
         if payment_method == 'credit' and customer:
             customer.credit_balance += total
             customer.save(update_fields=['credit_balance'])
@@ -285,7 +288,7 @@ def void_sale(request, sale_id):
                 qty_before = sl.quantity
                 sl.quantity += item.quantity
                 sl.save()
-                StockMovement.objects.create(
+                vm = StockMovement.objects.create(
                     product=item.product, variant=item.variant, shop=shop,
                     movement_type='return',
                     quantity=item.quantity,
@@ -294,6 +297,9 @@ def void_sale(request, sale_id):
                     reference=f"VOID-{sale.sale_number}",
                     created_by=request.user,
                 )
+                from sync_engine.utils import queue_for_sync
+                queue_for_sync(vm, 'create')
+                queue_for_sync(sl, 'update')
 
     return JsonResponse({'success': True, 'message': f'Sale {sale.sale_number} voided.'})
 

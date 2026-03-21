@@ -108,7 +108,7 @@ PROTO_VERSION = '3.0.0'
 
 # ── Sync Engine ─────────────────────────────────────────────────
 # Set these on the local machine to enable cloud sync
-CLOUD_SYNC_URL     = os.environ.get('CLOUD_SYNC_URL', 'http://102.223.19.30:8003/sync/receive/')          # e.g. https://yourserver.com/sync/receive/
+CLOUD_SYNC_URL     = os.environ.get('CLOUD_SYNC_URL', 'http://102.223.19.30:8003')          # e.g. https://yourserver.com/sync/receive/
 CLOUD_SYNC_API_KEY = os.environ.get('CLOUD_SYNC_API_KEY', 'production-xyz789production-xyz789')      # Secret key shared with cloud server
 SYNC_TIMEOUT       = int(os.environ.get('SYNC_TIMEOUT', '15'))     # seconds per request
 SYNC_MAX_RETRIES   = int(os.environ.get('SYNC_MAX_RETRIES', '3'))  # max attempts before marking failed

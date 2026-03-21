@@ -182,14 +182,19 @@ def stock_take_detail(request, pk):
                     )
                     sl.quantity = item.counted_quantity
                     sl.save()
-                    StockMovement.objects.create(
-                        product=item.product, shop=shop, movement_type='adjustment',
+                    tkm = StockMovement.objects.create(
+                        product=item.product, shop=shop, movement_type='stock_take',
                         quantity=item.discrepancy,
                         quantity_before=item.system_quantity,
                         quantity_after=item.counted_quantity,
                         reference=f'TAKE-{take.pk}',
                         created_by=request.user,
                     )
+                    from sync_engine.utils import queue_for_sync
+                    queue_for_sync(tkm, 'create')
+                    tsl = StockLevel.objects.filter(product=item.product, shop=shop).first()
+                    if tsl:
+                        queue_for_sync(tsl, 'update')
             messages.success(request, 'Stock take completed and adjustments applied.')
             return redirect('stock:list')
         messages.success(request, 'Counts saved.')

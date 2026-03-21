@@ -299,6 +299,7 @@ def inspect_order(request, pk):
                     )
                     from sync_engine.utils import queue_for_sync
                     queue_for_sync(sm, 'create')
+                    queue_for_sync(sl, 'update')
 
                 item.quantity_received += accepted
                 item.quantity_rejected += rejected
@@ -374,7 +375,7 @@ def cancel_order(request, pk):
                     qty_before = sl.quantity
                     sl.quantity = max(0, sl.quantity - item.quantity_received)
                     sl.save()
-                    StockMovement.objects.create(
+                    cm = StockMovement.objects.create(
                         product=item.product,
                         variant=item.variant,
                         shop=shop,
@@ -386,6 +387,9 @@ def cancel_order(request, pk):
                         notes=f'Stock reversed: purchase order {order.order_number} cancelled.',
                         created_by=request.user,
                     )
+                    from sync_engine.utils import queue_for_sync
+                    queue_for_sync(cm, 'create')
+                    queue_for_sync(sl, 'update')
             order.status = 'cancelled'
             order.save(update_fields=['status'])
 

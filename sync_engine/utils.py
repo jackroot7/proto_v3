@@ -110,6 +110,15 @@ def build_payload(instance):
             'total_transactions': instance.total_transactions or 0,
         }
 
+    elif model_name == 'StockLevel':
+        return {
+            'model':      'StockLevel',
+            'shop_id':    instance.shop_id,
+            'product_id': instance.product_id,
+            'variant_id': instance.variant_id,
+            'quantity':   instance.quantity,
+        }
+
     elif model_name == 'PurchaseOrder':
         items = []
         for item in instance.items.select_related('product').all():
