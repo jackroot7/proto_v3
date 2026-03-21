@@ -41,7 +41,7 @@ def order_list(request):
     })
 
 
-# ── ORDER CREATE - multi-product form ─────────────────────────────
+# ── ORDER CREATE — multi-product form ─────────────────────────────
 @login_required
 def order_create(request):
     shop = get_current_shop(request)
@@ -120,7 +120,7 @@ def order_detail(request, pk):
     order = get_object_or_404(PurchaseOrder, pk=pk, shop=shop)
     items = order.items.select_related('product', 'product__category', 'variant')
 
-    # Build progress tracker steps for template - avoids split filter
+    # Build progress tracker steps for template — avoids split filter
     step_defs = [
         ('draft',      'Draft'),
         ('confirmed',  'Confirmed'),
@@ -285,7 +285,7 @@ def inspect_order(request, pk):
                     item.product.buying_price = item.unit_cost
                     item.product.save(update_fields=['buying_price'])
 
-                    StockMovement.objects.create(
+                    sm = StockMovement.objects.create(
                         product       = item.product,
                         variant       = item.variant,
                         shop          = shop,
@@ -297,6 +297,8 @@ def inspect_order(request, pk):
                         notes         = f'Inspection: {accepted} accepted, {rejected} rejected. {notes}',
                         created_by    = request.user,
                     )
+                    from sync_engine.utils import queue_for_sync
+                    queue_for_sync(sm, 'create')
 
                 item.quantity_received += accepted
                 item.quantity_rejected += rejected
@@ -322,7 +324,7 @@ def inspect_order(request, pk):
         if all_done:
             msg = f'Inspection complete. {total_accepted} unit(s) accepted and added to stock.'
             if total_rejected:
-                msg += f' {total_rejected} unit(s) rejected - not added to stock.'
+                msg += f' {total_rejected} unit(s) rejected — not added to stock.'
         else:
             msg = 'Partial receipt saved. Re-open inspection when remaining items arrive.'
         messages.success(request, msg)
@@ -347,7 +349,7 @@ def cancel_order(request, pk):
     items_with_stock = [i for i in order.items.all() if i.quantity_received > 0]
 
     if items_with_stock:
-        # Confirm required - stock will be reversed
+        # Confirm required — stock will be reversed
         confirmed = request.POST.get('confirm_stock_reversal') == 'yes'
         if not confirmed:
             messages.error(
@@ -394,7 +396,7 @@ def cancel_order(request, pk):
             f'{reversed_units} unit(s) removed from stock.'
         )
     else:
-        # No stock was received - safe to cancel directly
+        # No stock was received — safe to cancel directly
         order.status = 'cancelled'
         order.save(update_fields=['status'])
         messages.success(request, f'{order.order_number} cancelled.')

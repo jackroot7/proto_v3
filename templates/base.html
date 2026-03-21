@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Proto v3{% endblock %} - {{ current_shop.name|default:"" }}</title>
+  <title>{% block title %}Proto v3{% endblock %} — {{ current_shop.name|default:"" }}</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/logo-icon.svg">
   <link rel="stylesheet" href="/static/css/proto.css">
   {% block extra_head %}{% endblock %}
@@ -86,6 +86,10 @@
       <div class="nav-section">System</div>
       <a href="{% url 'settings:index' %}" class="nav-item {% if request.resolver_match.namespace == 'settings' %}active{% endif %}">
         <span class="nav-icon">&#9881;</span> Settings
+      </a>
+      <a href="{% url 'sync_engine:dashboard' %}" class="nav-item {% if request.resolver_match.namespace == 'sync_engine' %}active{% endif %}">
+        <span class="nav-icon">&#8645;</span> Sync
+        {% if pending_sync_count > 0 %}<span class="badge badge-amber" style="font-size:9px;padding:1px 5px;margin-left:4px">{{ pending_sync_count }}</span>{% endif %}
       </a>
 
       <!-- Language quick-toggle -->

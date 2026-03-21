@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Sync Status{% endblock %}
+{% block page_title %}Sync & Offline Status{% endblock %}
+
+{% block topbar_actions %}
+  <button class="btn btn-primary btn-sm" id="btn-sync-now">Sync Now</button>
+  <span id="sync-result" style="font-size:12px;color:#6b6b80;margin-left:4px"></span>
+{% endblock %}
+
+{% block content %}
+
+<!-- Status strip -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+  <div class="card" style="text-align:center;padding:14px">
+    <div style="font-size:28px;font-weight:700;color:#e67e22">{{ total_pending }}</div>
+    <div style="font-size:11px;color:#6b6b80;margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Pending Upload</div>
+  </div>
+  <div class="card" style="text-align:center;padding:14px">
+    <div style="font-size:28px;font-weight:700;color:{% if total_failed > 0 %}#9b2626{% else %}#6b6b80{% endif %}">{{ total_failed }}</div>
+    <div style="font-size:11px;color:#6b6b80;margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Failed</div>
+  </div>
+  <div class="card" style="text-align:center;padding:14px">
+    <div style="font-size:28px;font-weight:700;color:#0D512B">{{ total_synced }}</div>
+    <div style="font-size:11px;color:#6b6b80;margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Synced</div>
+  </div>
+  <div class="card" style="text-align:center;padding:14px">
+    <div style="font-size:16px;font-weight:600;margin-top:4px" id="conn-status">
+      <span class="badge badge-green">Checking...</span>
+    </div>
+    <div style="font-size:11px;color:#6b6b80;margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Connection</div>
+  </div>
+</div>
+
+{% if not configured %}
+<div style="background:#fef3dc;border:1px solid #f9c74f;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+  <div style="font-size:13px;font-weight:600;color:#7a5010;margin-bottom:6px">⚙ Sync not configured</div>
+  <p style="font-size:12px;color:#7a5010;margin-bottom:10px;line-height:1.6">
+    Proto v3 works fully offline. To sync data to a cloud server, set these environment variables or add them to <code>config/settings.py</code>:
+  </p>
+  <pre style="background:#fff;border:1px solid #f9c74f;border-radius:6px;padding:12px;font-size:12px;color:#1a1a2e;overflow-x:auto">CLOUD_SYNC_URL     = "https://yourserver.com"
+CLOUD_SYNC_API_KEY = "your-secret-key-here"</pre>
+  <p style="font-size:11px;color:#a06818;margin-top:8px">
+    The cloud server must be running Proto v3 with the same API key and have the <code>/sync/receive/</code> endpoint accessible.
+  </p>
+</div>
+{% else %}
+<div style="background:#e8f5ee;border:1px solid #a3d6b5;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+  <div>
+    <span style="font-size:13px;font-weight:600;color:#0a3d1f">● Cloud server configured</span>
+    <span style="font-size:12px;color:#1a6b3a;margin-left:8px">{{ cloud_url }}</span>
+  </div>
+  <div style="display:flex;gap:6px">
+    <form method="post" action="{% url 'sync_engine:retry_failed' %}" style="display:inline">{% csrf_token %}
+      <button type="submit" class="btn btn-outline btn-sm">↺ Retry Failed</button>
+    </form>
+    <form method="post" action="{% url 'sync_engine:clear_synced' %}" style="display:inline">{% csrf_token %}
+      <button type="submit" class="btn btn-outline btn-sm">🗑 Clear Old Synced</button>
+    </form>
+    <form method="post" action="{% url 'sync_engine:purge_failed' %}" style="display:inline"
+          onsubmit="return confirm('Permanently delete all failed items?')">{% csrf_token %}
+      <button type="submit" class="btn btn-outline btn-sm" style="color:#9b2626;border-color:#f5b0b0">⚠ Purge Failed</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2">
+
+  <!-- Pending items -->
+  <div class="card">
+    <div class="card-title">
+      Pending upload
+      <span class="badge badge-amber">{{ total_pending }}</span>
+    </div>
+    {% if pending_items %}
+    <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+      <table>
+        <thead><tr><th>Model</th><th>Operation</th><th>Queued</th></tr></thead>
+        <tbody>
+          {% for item in pending_items %}
+          <tr>
+            <td style="font-weight:500;font-size:12px">{{ item.payload.model|default:item.content_type }}</td>
+            <td><span class="badge badge-{% if item.operation == 'create' %}green{% elif item.operation == 'update' %}amber{% else %}red{% endif %}">{{ item.operation }}</span></td>
+            <td style="font-size:11px;color:#6b6b80">{{ item.created_at|date:"d M H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:20px;color:#6b6b80;font-size:13px">
+      <div style="font-size:24px;margin-bottom:6px">✓</div>
+      Nothing waiting to sync
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Failed items -->
+  <div class="card">
+    <div class="card-title">
+      Failed items
+      <span class="badge badge-red">{{ total_failed }}</span>
+    </div>
+    {% if failed_items %}
+    <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+      <table>
+        <thead><tr><th>Model</th><th>Attempts</th><th>Error</th></tr></thead>
+        <tbody>
+          {% for item in failed_items %}
+          <tr>
+            <td style="font-weight:500;font-size:12px">{{ item.payload.model|default:item.content_type }}</td>
+            <td style="color:#9b2626;font-size:12px">{{ item.attempts }}</td>
+            <td style="font-size:11px;color:#9b2626;max-width:200px;word-break:break-word">{{ item.error_message|truncatechars:80 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:20px;color:#6b6b80;font-size:13px">No failed items</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Sync log -->
+<div class="card" style="margin-top:16px">
+  <div class="card-title">Sync history</div>
+  {% if recent_logs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Time</th><th>Direction</th><th>Synced</th><th>Failed</th><th>Duration</th></tr></thead>
+      <tbody>
+        {% for log in recent_logs %}
+        <tr>
+          <td style="font-size:12px;color:#6b6b80">{{ log.created_at|date:"d M Y H:i" }}</td>
+          <td><span class="badge badge-{% if log.direction == 'up' %}purple{% else %}green{% endif %}">{{ log.get_direction_display }}</span></td>
+          <td style="color:#0D512B;font-weight:500">{{ log.records_synced }}</td>
+          <td style="color:{% if log.records_failed > 0 %}#9b2626{% else %}#6b6b80{% endif %}">{{ log.records_failed }}</td>
+          <td style="font-size:12px;color:#6b6b80">{{ log.duration_seconds }}s</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:#6b6b80;font-size:13px;padding:8px 0">No sync history yet.</p>
+  {% endif %}
+</div>
+
+<script>
+document.getElementById('btn-sync-now').addEventListener('click', function() {
+  const btn = this;
+  const result = document.getElementById('sync-result');
+  btn.textContent = 'Syncing...';
+  btn.disabled = true;
+  result.textContent = '';
+
+  fetch('/sync/trigger/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() }
+  })
+  .then(r => r.json())
+  .then(d => {
+    btn.textContent = 'Sync Now';
+    btn.disabled = false;
+    if (d.error) {
+      result.textContent = '✗ ' + d.error;
+      result.style.color = '#9b2626';
+    } else {
+      result.textContent = '✓ ' + d.synced + ' synced, ' + d.failed + ' failed (' + d.duration + 's)';
+      result.style.color = d.failed > 0 ? '#e67e22' : '#0D512B';
+      setTimeout(() => location.reload(), 1500);
+    }
+  })
+  .catch(() => {
+    btn.textContent = 'Sync Now';
+    btn.disabled = false;
+    result.textContent = '✗ Network error';
+    result.style.color = '#9b2626';
+  });
+});
+
+// Check connection
+fetch('/sync/status/')
+  .then(r => r.json())
+  .then(d => {
+    const el = document.getElementById('conn-status');
+    if (d.online) {
+      el.innerHTML = '<span class="badge badge-green">● Online</span>';
+    } else {
+      el.innerHTML = '<span class="badge badge-amber">◌ Offline</span>';
+    }
+  }).catch(() => {
+    document.getElementById('conn-status').innerHTML = '<span class="badge badge-amber">◌ Offline</span>';
+  });
+
+function getCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+</script>
+{% endblock %}

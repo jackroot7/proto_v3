@@ -90,7 +90,7 @@ def adjust_stock(request, product_pk):
         if new_qty < 0:
             messages.error(
                 request,
-                f'Cannot reduce by {qty} - only {sl.quantity} unit(s) in stock. '
+                f'Cannot reduce by {qty} — only {sl.quantity} unit(s) in stock. '
                 f'Maximum you can reduce is {sl.quantity}.'
             )
             return render(request, 'stock/adjust.html', {
@@ -100,7 +100,7 @@ def adjust_stock(request, product_pk):
         sl.quantity = new_qty
         sl.save()
 
-        StockMovement.objects.create(
+        movement = StockMovement.objects.create(
             product=product,
             shop=shop,
             movement_type='adjustment',
@@ -112,6 +112,8 @@ def adjust_stock(request, product_pk):
         )
 
         direction_word = 'added to' if delta > 0 else 'removed from'
+        from sync_engine.utils import queue_for_sync
+        queue_for_sync(movement, 'create')
         messages.success(
             request,
             f'{qty} unit(s) {direction_word} {product.name}. '

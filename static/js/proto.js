@@ -1,4 +1,4 @@
-/* Proto v3 - Global JavaScript
+/* Proto v3 — Global JavaScript
    POS-specific logic lives in templates/pos/index.html
    This file handles: modals, sync status, alerts, shared utils */
 
@@ -109,15 +109,36 @@ function checkSync() {
 const syncBadge = document.getElementById('sync-indicator');
 if (syncBadge) {
   syncBadge.addEventListener('click', function() {
-    fetch('/sync/trigger/', {
-      method: 'POST',
-      headers: { 'X-CSRFToken': getCookie('csrftoken') },
-    }).then(r => r.json()).then(d => {
-      checkSync();
-      if (d.synced > 0) showToast('Synced ' + d.synced + ' record(s).', 'success');
-    });
+    doSync();
   });
-  setInterval(checkSync, 30000);
+}
+
+function doSync() {
+  fetch('/sync/trigger/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+  }).then(r => r.json()).then(d => {
+    checkSync();
+    if (d.synced > 0) showToast('Synced ' + d.synced + ' record(s).', 'success');
+    if (d.failed > 0) showToast(d.failed + ' record(s) failed to sync.', 'warning');
+    if (d.error) showToast(d.error, 'warning');
+  }).catch(() => {});
+}
+
+// Auto-sync every 30s if there are pending items
+function autoSync() {
+  fetch('/sync/status/')
+    .then(r => r.json())
+    .then(d => {
+      checkSync();
+      if (d.configured && d.pending > 0 && d.online) {
+        doSync();
+      }
+    }).catch(() => {});
+}
+
+if (document.getElementById('sync-indicator')) {
+  setInterval(autoSync, 30000);
   checkSync();
 }
 

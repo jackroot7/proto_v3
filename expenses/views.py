@@ -69,6 +69,8 @@ def expense_create(request):
             exp.recorded_by = request.user
             exp.save()
             messages.success(request, 'Expense recorded.')
+            from sync_engine.utils import queue_for_sync
+            queue_for_sync(exp, 'create')
             return redirect('expenses:list')
     else:
         form = ExpenseForm(initial={'date': timezone.now().date()})
