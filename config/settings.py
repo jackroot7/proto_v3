@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'proto-v3-local-secret-change-in-production-xyz789'
@@ -110,14 +109,14 @@ PROTO_VERSION = '3.0.0'
 
 # ── Sync Engine ─────────────────────────────────────────────────
 # Set these on the local machine to enable cloud sync
-CLOUD_SYNC_URL     = os.environ.get('CLOUD_SYNC_URL')          # e.g. https://yourserver.com/sync/receive/
-CLOUD_SYNC_API_KEY = os.environ.get('CLOUD_SYNC_API_KEY')      # Secret key shared with cloud server
-SYNC_TIMEOUT       = int(os.environ.get('SYNC_TIMEOUT',15))     # seconds per request
-SYNC_MAX_RETRIES   = int(os.environ.get('SYNC_MAX_RETRIES',3))  # max attempts before marking failed
-SYNC_BATCH_SIZE    = int(os.environ.get('SYNC_BATCH_SIZE',50))  # items per sync batch
+CLOUD_SYNC_URL     = os.environ.get('CLOUD_SYNC_URL', 'http://102.223.19.30:8003')          # e.g. https://yourserver.com/sync/receive/
+CLOUD_SYNC_API_KEY = os.environ.get('CLOUD_SYNC_API_KEY', 'production-xyz789production-xyz789')      # Secret key shared with cloud server
+SYNC_TIMEOUT       = int(os.environ.get('SYNC_TIMEOUT', '15'))     # seconds per request
+SYNC_MAX_RETRIES   = int(os.environ.get('SYNC_MAX_RETRIES', '3'))  # max attempts before marking failed
+SYNC_BATCH_SIZE    = int(os.environ.get('SYNC_BATCH_SIZE', '50'))  # items per sync batch
 # ── WhatsApp Integration (Twilio) ───────────────────────────────
-TWILIO_ACCOUNT_SID   = os.environ.get('TWILIO_ACCOUNT_SID')    # ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN    = os.environ.get('TWILIO_AUTH_TOKEN')     # from console.twilio.com
-WHATSAPP_FROM        = os.environ.get('WHATSAPP_FROM')         # +14155238886 (sandbox) or approved number
-WHATSAPP_TEST_NUMBER = os.environ.get('WHATSAPP_TEST_NUMBER')  # +255712345678 — your number for testing
-SITE_URL             = os.environ.get('SITE_URL')              # e.g. https://yourserver.com (for PDF media URLs)
+TWILIO_ACCOUNT_SID   = os.environ.get('TWILIO_ACCOUNT_SID', 'AC51722cc616e3ab999475fab7cca1b474')    # ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN    = os.environ.get('TWILIO_AUTH_TOKEN', 'b605dc4be6ad32821651e5eee3a87838')     # from console.twilio.com
+WHATSAPP_FROM        = os.environ.get('WHATSAPP_FROM', 'whatsapp:+14155238886')         # +14155238886 (sandbox) or approved number
+WHATSAPP_TEST_NUMBER = os.environ.get('WHATSAPP_TEST_NUMBER', '+255755985162')  # +255712345678 — your number for testing
+SITE_URL             = os.environ.get('SITE_URL', '')              # e.g. https://yourserver.com (for PDF media URLs)
