@@ -43,9 +43,9 @@ db.sqlite3
 db.sqlite3-journal
 
 # Media & static (optional – depends on setup)
-media/
+# media/
 staticfiles/
-static/
+# static/
 
 # =========================
 # Environment Variables
