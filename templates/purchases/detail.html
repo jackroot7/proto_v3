@@ -1,6 +1,40 @@
 {% extends "base.html" %}
-{% block title %}{{ order.order_number }}{% endblock %}
-{% block page_title %}{{ order.order_number }}{% endblock %}
+{% block title %}{{ order.order_number }}
+<script>
+function sendWaPO(orderId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/purchase-order/' + orderId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    btn.textContent = d.success ? '✓ Sent' : '✗ Failed';
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+  });
+}
+</script>
+{% endblock %}
+{% block page_title %}{{ order.order_number }}
+<script>
+function sendWaPO(orderId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/purchase-order/' + orderId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    btn.textContent = d.success ? '✓ Sent' : '✗ Failed';
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+  });
+}
+</script>
+{% endblock %}
 {% block topbar_actions %}
   {% if order.can_confirm %}
     <form method="post" action="{% url 'purchases:confirm' order.pk %}" style="display:inline">{% csrf_token %}
@@ -25,7 +59,28 @@
       <button type="submit" class="btn btn-outline btn-sm" style="color:#9b2626;border-color:#f5b0b0">Cancel Order</button>
     </form>
   {% endif %}
+  {% if order.supplier.phone and order.status == 'draft' or order.status == 'confirmed' %}
+  <button class="btn btn-outline btn-sm" style="color:#25d366;border-color:#25d366"
+          onclick="sendWaPO({{ order.pk }}, this)">📱 Send to Supplier</button>
+  {% endif %}
   <a href="{% url 'purchases:list' %}" class="btn btn-outline btn-sm">&#8592; Back</a>
+
+<script>
+function sendWaPO(orderId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/purchase-order/' + orderId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    btn.textContent = d.success ? '✓ Sent' : '✗ Failed';
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+  });
+}
+</script>
 {% endblock %}
 {% block content %}
 
@@ -191,6 +246,23 @@ function confirmCancel(pk) {
     return ok;
   }
   return confirm('Cancel this order?');
+}
+</script>
+
+<script>
+function sendWaPO(orderId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/purchase-order/' + orderId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    btn.textContent = d.success ? '✓ Sent' : '✗ Failed';
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+  });
 }
 </script>
 {% endblock %}

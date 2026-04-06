@@ -58,12 +58,65 @@ def generate_daily_report(day_session):
 
 
 def send_daily_report(day_session, pdf_path):
-    """Send the daily report to the owner via email. Extend for WhatsApp."""
-    # Email sending - configure SMTP in settings for production
-    # from django.core.mail import EmailMessage
-    # email = EmailMessage(...)
-    # email.send()
-    pass
+    """Send the daily report to the owner via WhatsApp and/or email."""
+    from settings_app.models import ShopSettings
+    try:
+        shop_settings = ShopSettings.objects.get(shop=day_session.shop)
+    except ShopSettings.DoesNotExist:
+        return
+
+    if not shop_settings.daily_report_enabled:
+        return
+
+    results = []
+
+    # ── WhatsApp ─────────────────────────────────────────────────
+    wa_number = shop_settings.daily_report_whatsapp
+    if wa_number:
+        try:
+            from whatsapp.providers import send_whatsapp
+            from whatsapp.messages import daily_report_message
+            # Build public URL for PDF if available (Twilio fetches media by URL)
+            pdf_url = None
+            if pdf_path:
+                from django.conf import settings as dj_s
+                media_root = getattr(dj_s, 'MEDIA_ROOT', '')
+                media_url  = getattr(dj_s, 'MEDIA_URL', '/media/')
+                site_url   = getattr(dj_s, 'SITE_URL', '')
+                if media_root and pdf_path.startswith(media_root):
+                    relative = pdf_path[len(media_root):]
+                    if site_url:
+                        pdf_url = site_url.rstrip('/') + media_url + relative.lstrip('/')
+            message, media = daily_report_message(day_session, pdf_url)
+            result = send_whatsapp(wa_number, message, media)
+            results.append(('whatsapp', result))
+            if not result.get('success'):
+                import logging
+                logging.getLogger('proto_v3').warning(
+                    f"WhatsApp daily report failed: {result.get('error')}")
+        except Exception as e:
+            import logging
+            logging.getLogger('proto_v3').error(f"WhatsApp daily report error: {e}")
+
+    # ── Email ────────────────────────────────────────────────────
+    email = shop_settings.daily_report_email
+    if email and pdf_path:
+        try:
+            from django.core.mail import EmailMessage
+            mail = EmailMessage(
+                subject=f"Daily Report — {day_session.shop.name} {day_session.date}",
+                body=f"Please find the daily report for {day_session.shop.name} attached.",
+                to=[email],
+            )
+            with open(pdf_path, 'rb') as f:
+                mail.attach(f"report_{day_session.date}.pdf", f.read(), 'application/pdf')
+            mail.send()
+            results.append(('email', {'success': True}))
+        except Exception as e:
+            import logging
+            logging.getLogger('proto_v3').error(f"Email daily report error: {e}")
+
+    return results
 
 
 def generate_report_pdf(shop, start, end):

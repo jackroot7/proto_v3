@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'sync_engine',
     'settings_app',
     'units',
+    'whatsapp',
 ]
 
 MIDDLEWARE = [
@@ -113,3 +114,9 @@ CLOUD_SYNC_API_KEY = os.environ.get('CLOUD_SYNC_API_KEY', 'production-xyz789prod
 SYNC_TIMEOUT       = int(os.environ.get('SYNC_TIMEOUT', '15'))     # seconds per request
 SYNC_MAX_RETRIES   = int(os.environ.get('SYNC_MAX_RETRIES', '3'))  # max attempts before marking failed
 SYNC_BATCH_SIZE    = int(os.environ.get('SYNC_BATCH_SIZE', '50'))  # items per sync batch
+# ── WhatsApp Integration (Twilio) ───────────────────────────────
+TWILIO_ACCOUNT_SID   = os.environ.get('TWILIO_ACCOUNT_SID', 'AC51722cc616e3ab999475fab7cca1b474')    # ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN    = os.environ.get('TWILIO_AUTH_TOKEN', 'b605dc4be6ad32821651e5eee3a87838')     # from console.twilio.com
+WHATSAPP_FROM        = os.environ.get('WHATSAPP_FROM', 'whatsapp:+14155238886')         # +14155238886 (sandbox) or approved number
+WHATSAPP_TEST_NUMBER = os.environ.get('WHATSAPP_TEST_NUMBER', '+255755985162')  # +255712345678 — your number for testing
+SITE_URL             = os.environ.get('SITE_URL', '')              # e.g. https://yourserver.com (for PDF media URLs)

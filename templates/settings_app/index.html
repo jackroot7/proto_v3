@@ -22,6 +22,7 @@
   <a href="#" class="pill-tab"        onclick="stab('reports',this);return false;">Daily Reports</a>
   <a href="#" class="pill-tab"        onclick="stab('receipt',this);return false;">Receipt</a>
   <a href="#" class="pill-tab"        onclick="stab('sync',this);return false;">Sync</a>
+  <a href="#" class="pill-tab"        onclick="stab('whatsapp',this);return false;">📱 WhatsApp</a>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -257,9 +258,76 @@
   </div>
 </div>
 
+<!-- WHATSAPP -->
+<div class="stab-section" id="stab-whatsapp" style="display:none">
+  <div class="card" style="max-width:620px">
+    <div class="card-title">WhatsApp Integration</div>
+    <p style="font-size:13px;color:#6b6b80;margin-bottom:16px;line-height:1.6">
+      Connect Proto v3 to a WhatsApp API provider to send receipts, credit reminders,
+      daily reports, and purchase orders directly to customers and suppliers.
+    </p>
+
+    <div style="background:#f0edfb;border:1px solid #c4b8f0;border-radius:8px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:600;color:#3d2a8f;margin-bottom:8px">Supported providers</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div style="background:#fff;border-radius:6px;padding:8px 10px">
+          <strong>Twilio</strong><div style="color:#6b6b80;font-size:11px;margin-top:2px">Global, reliable. Free sandbox available.</div>
+          <a href="https://console.twilio.com" target="_blank" style="font-size:10px;color:#6146c1">console.twilio.com →</a>
+        </div>
+        <div style="background:#fff;border-radius:6px;padding:8px 10px">
+          <strong>Africa's Talking</strong><div style="color:#6b6b80;font-size:11px;margin-top:2px">Popular in East Africa. Supports Tanzania.</div>
+          <a href="https://africastalking.com" target="_blank" style="font-size:10px;color:#6146c1">africastalking.com →</a>
+        </div>
+        <div style="background:#fff;border-radius:6px;padding:8px 10px">
+          <strong>Whapi.cloud</strong><div style="color:#6b6b80;font-size:11px;margin-top:2px">Affordable unofficial API. Easy setup.</div>
+          <a href="https://whapi.cloud" target="_blank" style="font-size:10px;color:#6146c1">whapi.cloud →</a>
+        </div>
+        <div style="background:#fff;border-radius:6px;padding:8px 10px">
+          <strong>Custom webhook</strong><div style="color:#6b6b80;font-size:11px;margin-top:2px">Bring your own provider via HTTP POST.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fef3dc;border:1px solid #f9c74f;border-radius:8px;padding:12px;font-size:12px;color:#7a5010;margin-bottom:16px">
+      <strong>Configuration:</strong> Add these to your system environment or <code>config/settings.py</code>:
+      <pre style="background:#fff;border-radius:4px;padding:8px;margin-top:8px;font-size:11px;overflow-x:auto">TWILIO_ACCOUNT_SID   = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+TWILIO_AUTH_TOKEN    = "your_auth_token"
+WHATSAPP_FROM        = "+14155238886"    # Twilio sandbox or approved sender
+WHATSAPP_TEST_NUMBER = "+255712345678"   # your number for testing</pre>
+      <div style="margin-top:8px">Get credentials at
+      <a href="https://console.twilio.com" target="_blank" style="color:#7a5010;font-weight:600">console.twilio.com</a>.
+      For testing use the free <strong>Twilio Sandbox</strong> — send <code>join &lt;word&gt;</code>
+      from your phone to the sandbox number first.</div>
+    </div>
+
+    <div class="form-group">
+      <label>WhatsApp number for daily reports</label>
+      {{ form.daily_report_whatsapp }}
+      <div class="field-hint">This is stored in the database. Include country code: +255712345678</div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
+      <button type="button" class="btn btn-outline" id="wa-test-btn"
+              onclick="testWhatsApp()" style="color:#25d366;border-color:#25d366">
+        📱 Send Test Message
+      </button>
+      <span id="wa-test-result" style="font-size:12px;color:#6b6b80"></span>
+    </div>
+
+    <div style="margin-top:14px;font-size:12px;color:#6b6b80;line-height:1.7">
+      <strong>What gets sent automatically:</strong><br>
+      • Daily closing report (when you close the day, if enabled in Daily Reports tab)<br>
+      • Credit reminders (manual — from customer detail page)<br>
+      • Sale receipts (manual — from sale history, if customer has a phone)<br>
+      • Purchase orders to suppliers (manual — from order detail page)
+    </div>
+  </div>
+</div>
+
 <!-- SAVE BUTTON -->
 <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e4e4ec;display:flex;align-items:center;gap:14px">
-  <button type="submit" class="btn btn-primary" style="padding:10px 32px;font-size:14px">Save Changes</button>
+  
+<button type="submit" class="btn btn-primary" style="padding:10px 32px;font-size:14px">Save Changes</button>
   <span style="font-size:12px;color:#6b6b80">
     Last saved: {{ settings.updated_at|date:"d M Y H:i"|default:"Not yet saved" }}
   </span>
@@ -286,6 +354,29 @@
 {% endif %}
 
 <script>
+function testWhatsApp() {
+  const btn    = document.getElementById('wa-test-btn');
+  const result = document.getElementById('wa-test-result');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/test/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.textContent = '📱 Send Test Message';
+    btn.disabled = false;
+    result.textContent = d.success
+      ? '✓ Message sent successfully via ' + (d.provider || 'provider')
+      : '✗ Failed: ' + d.error;
+    result.style.color = d.success ? '#0D512B' : '#9b2626';
+  }).catch(() => {
+    btn.textContent = '📱 Send Test Message';
+    btn.disabled = false;
+    result.textContent = '✗ Network error';
+    result.style.color = '#9b2626';
+  });
+}
+
 function stab(id, el) {
   document.querySelectorAll('.stab-section').forEach(s => s.style.display = 'none');
   document.querySelectorAll('#stabs .pill-tab').forEach(t => t.classList.remove('active'));

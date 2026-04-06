@@ -134,7 +134,7 @@ def dashboard(request):
     monthly_expenses   = Expense.objects.filter(shop=shop, date__gte=first_of_month).aggregate(t=Sum('amount'))['t'] or Decimal('0')
     month_items        = SaleItem.objects.filter(sale__in=month_qs)
     monthly_cogs       = sum((i.buying_price * i.quantity) for i in month_items)
-    monthly_gross      = float(monthly_revenue) - monthly_cogs
+    monthly_gross      = float(monthly_revenue) - float(monthly_cogs)
     monthly_net        = monthly_gross - float(monthly_expenses)
 
     # ── Last month comparison ─────────────────────────────────────

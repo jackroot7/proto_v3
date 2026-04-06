@@ -15,6 +15,7 @@ urlpatterns = [
     path('customers/', include('customers.urls')),
     path('reports/', include('reports.urls')),
     path('sync/', include('sync_engine.urls')),
+    path('whatsapp/', include('whatsapp.urls')),
     path('settings/', include('settings_app.urls')),
     path('units/', include('units.urls')),
     path('i18n/', include('django.conf.urls.i18n')),

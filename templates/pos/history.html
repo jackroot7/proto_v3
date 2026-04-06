@@ -1,7 +1,70 @@
 {% extends "base.html" %}
-{% block title %}Sales History{% endblock %}
-{% block page_title %}Today's Sales{% endblock %}
-{% block topbar_actions %}<a href="{% url 'pos:index' %}" class="btn btn-primary btn-sm">Back to POS</a>{% endblock %}
+{% block title %}Sales History
+<script>
+function sendWaReceipt(saleId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = '...';
+  btn.disabled = true;
+  fetch('/whatsapp/receipt/' + saleId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfFromCookie() }
+  }).then(r => r.json()).then(d => {
+    btn.textContent = d.success ? '✓' : '✗';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+  });
+}
+function getCsrfFromCookie() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+</script>
+{% endblock %}
+{% block page_title %}Today's Sales
+<script>
+function sendWaReceipt(saleId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = '...';
+  btn.disabled = true;
+  fetch('/whatsapp/receipt/' + saleId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfFromCookie() }
+  }).then(r => r.json()).then(d => {
+    btn.textContent = d.success ? '✓' : '✗';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+  });
+}
+function getCsrfFromCookie() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+</script>
+{% endblock %}
+{% block topbar_actions %}<a href="{% url 'pos:index' %}" class="btn btn-primary btn-sm">Back to POS</a>
+<script>
+function sendWaReceipt(saleId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = '...';
+  btn.disabled = true;
+  fetch('/whatsapp/receipt/' + saleId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfFromCookie() }
+  }).then(r => r.json()).then(d => {
+    btn.textContent = d.success ? '✓' : '✗';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+  });
+}
+function getCsrfFromCookie() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+</script>
+{% endblock %}
 {% block content %}
 <div class="card">
   <div class="table-wrap">
@@ -18,7 +81,13 @@
           <td><span class="badge {% if s.payment_method == 'mpesa' %}badge-green{% elif s.payment_method == 'credit' %}badge-pink{% else %}badge-gray{% endif %}">{{ s.get_payment_method_display }}</span></td>
           <td style="font-size:12px">{{ s.cashier.get_full_name|default:s.cashier.username|default:"-" }}</td>
           <td>{% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>{% elif s.status == 'voided' %}<span class="badge badge-red">Voided</span>{% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}</td>
-          <td><a href="{% url 'pos:receipt' s.pk %}" class="btn btn-outline btn-sm" target="_blank">Receipt</a></td>
+          <td style="display:flex;gap:5px;align-items:center">
+            <a href="{% url 'pos:receipt' s.pk %}" class="btn btn-outline btn-sm" target="_blank">Receipt</a>
+            {% if s.customer and s.customer.phone %}
+            <button class="btn btn-outline btn-sm" style="color:#25d366;border-color:#25d366;font-size:11px"
+                    onclick="sendWaReceipt({{ s.pk }}, this)" title="Send receipt via WhatsApp">📱 WA</button>
+            {% endif %}
+          </td>
         </tr>
         {% empty %}
         <tr><td colspan="9" style="text-align:center;padding:28px;color:#6b6b80">No sales today yet.</td></tr>
@@ -28,4 +97,25 @@
 {% include "_pagination.html" %}
   </div>
 </div>
+
+<script>
+function sendWaReceipt(saleId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = '...';
+  btn.disabled = true;
+  fetch('/whatsapp/receipt/' + saleId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfFromCookie() }
+  }).then(r => r.json()).then(d => {
+    btn.textContent = d.success ? '✓' : '✗';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 3000);
+    if (!d.success) alert('WhatsApp failed: ' + d.error);
+  });
+}
+function getCsrfFromCookie() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+</script>
 {% endblock %}

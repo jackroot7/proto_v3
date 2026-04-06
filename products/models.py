@@ -73,9 +73,12 @@ class Product(models.Model):
 
     @property
     def profit_margin(self):
-        if self.buying_price > 0:
-            return ((self.selling_price - self.buying_price) / self.selling_price) * 100
-        return 0
+        try:
+            if self.buying_price > 0:
+                return ((self.selling_price - self.buying_price) / self.selling_price) * 100
+            return 0
+        except ZeroDivisionError:
+            return 0
 
     @property
     def current_stock(self):

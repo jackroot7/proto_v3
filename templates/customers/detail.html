@@ -1,10 +1,86 @@
 {% extends "base.html" %}
-{% block title %}{{ customer.name }}{% endblock %}
-{% block page_title %}{{ customer.name }}{% endblock %}
+{% block title %}{{ customer.name }}
+<script>
+function sendWaReminder(customerId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/credit-reminder/' + customerId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    if (d.success) {
+      btn.textContent = '✓ Sent';
+      btn.style.color = '#0D512B';
+      btn.style.borderColor = '#0D512B';
+    } else {
+      btn.textContent = '✗ Failed';
+      btn.style.color = '#9b2626';
+      alert('WhatsApp failed: ' + d.error);
+      setTimeout(() => { btn.textContent = orig; btn.style.color=''; btn.style.borderColor=''; }, 3000);
+    }
+  });
+}
+</script>
+{% endblock %}
+{% block page_title %}{{ customer.name }}
+<script>
+function sendWaReminder(customerId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/credit-reminder/' + customerId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    if (d.success) {
+      btn.textContent = '✓ Sent';
+      btn.style.color = '#0D512B';
+      btn.style.borderColor = '#0D512B';
+    } else {
+      btn.textContent = '✗ Failed';
+      btn.style.color = '#9b2626';
+      alert('WhatsApp failed: ' + d.error);
+      setTimeout(() => { btn.textContent = orig; btn.style.color=''; btn.style.borderColor=''; }, 3000);
+    }
+  });
+}
+</script>
+{% endblock %}
 {% block topbar_actions %}
   {% if customer.has_debt %}
   <a href="{% url 'customers:credit_payment' customer.pk %}" class="btn btn-success btn-sm">Record Payment</a>
+  {% if customer.phone %}
+  <button class="btn btn-outline btn-sm" style="color:#25d366;border-color:#25d366"
+          onclick="sendWaReminder({{ customer.pk }}, this)" id="wa-reminder-btn">📱 Send Reminder</button>
   {% endif %}
+  {% endif %}
+
+<script>
+function sendWaReminder(customerId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/credit-reminder/' + customerId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    if (d.success) {
+      btn.textContent = '✓ Sent';
+      btn.style.color = '#0D512B';
+      btn.style.borderColor = '#0D512B';
+    } else {
+      btn.textContent = '✗ Failed';
+      btn.style.color = '#9b2626';
+      alert('WhatsApp failed: ' + d.error);
+      setTimeout(() => { btn.textContent = orig; btn.style.color=''; btn.style.borderColor=''; }, 3000);
+    }
+  });
+}
+</script>
 {% endblock %}
 {% block content %}
 <div class="grid-2">
@@ -49,4 +125,28 @@
     </table>
   </div>
 </div>
+
+<script>
+function sendWaReminder(customerId, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  fetch('/whatsapp/credit-reminder/' + customerId + '/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '' }
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    if (d.success) {
+      btn.textContent = '✓ Sent';
+      btn.style.color = '#0D512B';
+      btn.style.borderColor = '#0D512B';
+    } else {
+      btn.textContent = '✗ Failed';
+      btn.style.color = '#9b2626';
+      alert('WhatsApp failed: ' + d.error);
+      setTimeout(() => { btn.textContent = orig; btn.style.color=''; btn.style.borderColor=''; }, 3000);
+    }
+  });
+}
+</script>
 {% endblock %}
