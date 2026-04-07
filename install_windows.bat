@@ -17,7 +17,30 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Python found. Installing dependencies...
+REM Create virtual environment if it doesn't already exist
+if not exist "venv\Scripts\activate.bat" (
+    echo Creating virtual environment...
+    python -m venv venv
+    if errorlevel 1 (
+        echo ERROR: Failed to create virtual environment.
+        pause
+        exit /b 1
+    )
+    echo Virtual environment created.
+) else (
+    echo Virtual environment already exists, skipping creation.
+)
+
+REM Activate virtual environment
+echo Activating virtual environment...
+call venv\Scripts\activate.bat
+
+REM Upgrade pip inside venv
+echo Upgrading pip...
+python -m pip install --upgrade pip --quiet
+
+REM Install dependencies inside venv
+echo Installing dependencies...
 pip install -r requirements.txt
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies.
