@@ -19,6 +19,9 @@ urlpatterns = [
     path('<int:product_pk>/variants/<int:variant_pk>/edit/', views.edit_variant, name='edit_variant'),
     path('<int:product_pk>/variants/<int:variant_pk>/delete/', views.delete_variant, name='delete_variant'),
     path('<int:product_pk>/variants/delete-type/', views.delete_variant_type, name='delete_variant_type'),
+    # Price tiers
+    path('<int:pk>/tiers/save/', views.save_price_tier, name='save_price_tier'),
+    path('<int:pk>/tiers/<int:tier_pk>/delete/', views.delete_price_tier, name='delete_price_tier'),
     # Bulk upload
     path('bulk-upload/', views.bulk_upload, name='bulk_upload'),
     path('bulk-upload/template/', views.download_template, name='download_template'),

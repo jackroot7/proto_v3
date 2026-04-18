@@ -23,17 +23,21 @@
 </div>{% endif %}
 <div class="card" style="margin-bottom:14px">
   <div style="font-size:13px;font-weight:600;margin-bottom:10px">Full inventory</div>
-  <div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>UOM</th><th>Qty</th><th>Buy Price</th><th>Cost Value</th><th>Retail Value</th><th>Status</th></tr></thead>
-  <tbody>{% for l in levels %}<tr>
+  <div class="table-wrap"><table><thead><tr><th>Product</th><th>Variant</th><th>Category</th><th>UOM</th><th>Qty</th><th>Buy Price</th><th>Cost Value</th><th>Retail Value</th><th>Status</th></tr></thead>
+  <tbody>{% for d in levels_data %}{% with l=d.level %}
+  <tr>
     <td style="font-weight:500">{{ l.product.name }}</td>
+    <td style="font-size:11px;color:#6b6b80">
+      {% if l.variant %}{% for a in l.variant.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}{% else %}—{% endif %}
+    </td>
     <td style="font-size:12px;color:#6b6b80">{{ l.product.category.name|default:"-" }}</td>
     <td>{% if l.product.uom %}<span class="badge badge-purple">{{ l.product.uom.short_name }}</span>{% else %}-{% endif %}</td>
     <td style="font-weight:{% if l.quantity <= 0 %}600{% else %}400{% endif %};color:{% if l.quantity <= 0 %}#9b2626{% elif l.is_critical %}#e67e22{% else %}#1a1a2e{% endif %}">{{ l.quantity }}</td>
-    <td style="font-size:12px">TSh {{ l.product.buying_price|floatformat:0 }}</td>
-    <td>TSh {{ l.quantity|floatformat:0 }}</td>
-    <td style="color:#0D512B">TSh {{ l.quantity|floatformat:0 }}</td>
+    <td style="font-size:12px">TSh {{ d.buy_price|floatformat:0 }}</td>
+    <td>TSh {{ d.cost_value|floatformat:0 }}</td>
+    <td style="color:#0D512B">TSh {{ d.retail_value|floatformat:0 }}</td>
     <td>{% if l.quantity <= 0 %}<span class="badge badge-red">Out</span>{% elif l.is_critical %}<span class="badge badge-red">Critical</span>{% elif l.is_low %}<span class="badge badge-amber">Low</span>{% else %}<span class="badge badge-green">OK</span>{% endif %}</td>
-  </tr>{% endfor %}</tbody></table></div>
+  </tr>{% endwith %}{% endfor %}</tbody></table></div>
 </div>
 <div class="card">
   <div style="font-size:13px;font-weight:600;margin-bottom:10px">Stock movements - {{ start }} to {{ end }}</div>

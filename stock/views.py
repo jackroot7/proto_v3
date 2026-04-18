@@ -90,7 +90,7 @@ def adjust_stock(request, product_pk):
         if new_qty < 0:
             messages.error(
                 request,
-                f'Cannot reduce by {qty} — only {sl.quantity} unit(s) in stock. '
+                f'Cannot reduce by {qty} - only {sl.quantity} unit(s) in stock. '
                 f'Maximum you can reduce is {sl.quantity}.'
             )
             return render(request, 'stock/adjust.html', {

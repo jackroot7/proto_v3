@@ -97,6 +97,100 @@
 </div>
 {% endif %}
 
+<!-- Price Tiers -->
+<div class="card" style="margin-bottom:14px">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+    Bulk / Tiered Pricing
+    <button onclick="document.getElementById('tier-add-form').style.display=document.getElementById('tier-add-form').style.display==='none'?'block':'none'"
+            class="btn btn-outline btn-sm">+ Add Tier</button>
+  </div>
+  <p style="font-size:12px;color:#6b6b80;margin-bottom:12px">
+    Set lower prices that apply automatically when a customer buys a minimum quantity.
+  </p>
+
+  <!-- Add tier form -->
+  <div id="tier-add-form" style="display:none;background:#f7f7f8;border-radius:8px;padding:14px;margin-bottom:14px">
+    <form method="post" action="{% url 'products:save_price_tier' product.pk %}">
+      {% csrf_token %}
+      <div style="display:grid;grid-template-columns:{% if product.has_variants %}1fr 1fr {% endif %}120px 160px auto;gap:10px;align-items:end">
+        {% if product.has_variants %}
+        <div>
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Variant <span style="color:#6b6b80;font-weight:400">(optional)</span></label>
+          <select name="variant_id" style="width:100%;padding:6px 8px;border:1px solid #d0d0dc;border-radius:6px;font-size:13px">
+            <option value="">All variants (base product)</option>
+            {% for v in variants %}{% if v.is_active %}
+            <option value="{{ v.pk }}">{% for a in v.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}</option>
+            {% endif %}{% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div>
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Min Quantity</label>
+          <input type="number" name="min_quantity" min="2" placeholder="e.g. 10"
+                 style="width:100%;padding:6px 8px;border:1px solid #d0d0dc;border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Unit Price (TSh)</label>
+          <input type="number" name="unit_price" min="0" step="any" placeholder="e.g. 2700"
+                 style="width:100%;padding:6px 8px;border:1px solid #d0d0dc;border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap">Save Tier</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {% if price_tiers %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% if product.has_variants %}<th>Applies To</th>{% endif %}
+          <th>Min Quantity</th>
+          <th>Unit Price</th>
+          <th style="color:#6b6b80;font-size:12px">vs. Base Price</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tier in price_tiers %}
+        <tr>
+          {% if product.has_variants %}
+          <td style="font-size:13px">
+            {% if tier.variant %}
+              {% for a in tier.variant.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}
+            {% else %}
+              <span style="color:#6b6b80">All variants</span>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td style="font-weight:600">{{ tier.min_quantity }}+</td>
+          <td style="color:#6146c1;font-weight:600">TSh {{ tier.unit_price|floatformat:0 }}</td>
+          <td style="font-size:12px;color:#6b6b80">
+            {% if product.selling_price %}
+              {% with saving=product.selling_price|add:"-0" %}
+              Save TSh {{ product.selling_price|floatformat:0 }} → {{ tier.unit_price|floatformat:0 }}
+              {% endwith %}
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{% url 'products:delete_price_tier' product.pk tier.pk %}" style="display:inline"
+                  onsubmit="return confirm('Remove this price tier?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626;font-size:11px">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:#6b6b80;font-size:13px">No bulk pricing tiers set. Base price applies at all quantities.</p>
+  {% endif %}
+</div>
+
 <div class="card">
   <div class="card-title">Recent Stock Movements</div>
   <div class="table-wrap">

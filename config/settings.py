@@ -100,7 +100,7 @@ LOGIN_REDIRECT_URL = '/shop-select/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 # Proto v3 business settings
-PROTO_TAX_RATE = 0.18
+PROTO_TAX_RATE = 0.0
 PROTO_LOW_STOCK_THRESHOLD = 10
 PROTO_CURRENCY = 'TSh'
 PROTO_DAILY_REPORT_TIME = '22:00'
@@ -118,5 +118,5 @@ SYNC_BATCH_SIZE    = int(os.environ.get('SYNC_BATCH_SIZE', '50'))  # items per s
 TWILIO_ACCOUNT_SID   = os.environ.get('TWILIO_ACCOUNT_SID', 'AC51722cc616e3ab999475fab7cca1b474')    # ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN    = os.environ.get('TWILIO_AUTH_TOKEN', 'b605dc4be6ad32821651e5eee3a87838')     # from console.twilio.com
 WHATSAPP_FROM        = os.environ.get('WHATSAPP_FROM', 'whatsapp:+14155238886')         # +14155238886 (sandbox) or approved number
-WHATSAPP_TEST_NUMBER = os.environ.get('WHATSAPP_TEST_NUMBER', '+255755985162')  # +255712345678 — your number for testing
+WHATSAPP_TEST_NUMBER = os.environ.get('WHATSAPP_TEST_NUMBER', '+255755985162')  # +255712345678 - your number for testing
 SITE_URL             = os.environ.get('SITE_URL', '')              # e.g. https://yourserver.com (for PDF media URLs)

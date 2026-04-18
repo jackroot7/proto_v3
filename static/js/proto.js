@@ -1,4 +1,4 @@
-/* Proto v3 — Global JavaScript
+/* Proto v3 - Global JavaScript
    POS-specific logic lives in templates/pos/index.html
    This file handles: modals, sync status, alerts, shared utils */
 

@@ -34,9 +34,9 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to='products/', null=True, blank=True)
 
-    # Pricing
-    selling_price = models.DecimalField(max_digits=12, decimal_places=2)
-    buying_price  = models.DecimalField(max_digits=12, decimal_places=2)
+    # Pricing — optional when product uses variant-level prices
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    buying_price  = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     tax_inclusive = models.BooleanField(default=True)
 
     # Unit of Measure
@@ -74,10 +74,12 @@ class Product(models.Model):
     @property
     def profit_margin(self):
         try:
-            if self.buying_price > 0:
-                return ((self.selling_price - self.buying_price) / self.selling_price) * 100
+            sp = self.selling_price or 0
+            bp = self.buying_price or 0
+            if bp > 0 and sp > 0:
+                return ((sp - bp) / sp) * 100
             return 0
-        except ZeroDivisionError:
+        except (ZeroDivisionError, TypeError):
             return 0
 
     @property
@@ -122,11 +124,29 @@ class ProductVariant(models.Model):
 
     @property
     def effective_selling_price(self):
-        return self.selling_price if self.selling_price else self.product.selling_price
+        from decimal import Decimal
+        return self.selling_price or self.product.selling_price or Decimal('0')
 
     @property
     def effective_buying_price(self):
-        return self.buying_price if self.buying_price else self.product.buying_price
+        from decimal import Decimal
+        return self.buying_price or self.product.buying_price or Decimal('0')
+
+
+class ProductPriceTier(models.Model):
+    """Quantity-based bulk pricing: qty >= min_quantity → use unit_price."""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='price_tiers')
+    variant = models.ForeignKey(ProductVariant, on_delete=models.SET_NULL, null=True, blank=True, related_name='price_tiers')
+    min_quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ['-min_quantity']
+        unique_together = ('product', 'variant', 'min_quantity')
+
+    def __str__(self):
+        v = f' ({self.variant})' if self.variant else ''
+        return f'{self.product.name}{v}: {self.min_quantity}+ → {self.unit_price}'
 
 
 class VariantAttribute(models.Model):

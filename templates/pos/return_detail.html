@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Return {{ ret.return_number }}{% endblock %}
+{% block page_title %}Return Receipt — {{ ret.return_number }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'pos:return_history' %}" class="btn btn-outline btn-sm">Return History</a>
+  <a href="{% url 'pos:history' %}" class="btn btn-outline btn-sm">Sales History</a>
+{% endblock %}
+{% block content %}
+
+<div style="max-width:560px;margin:0 auto">
+  <div class="card" style="padding:24px">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:20px;font-weight:700">{{ ret.return_number }}</div>
+        <div style="font-size:12px;color:#6b6b80;margin-top:2px">{{ ret.created_at|date:"d M Y H:i" }}</div>
+      </div>
+      <span class="badge badge-pink" style="font-size:13px;padding:5px 12px">Return</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;margin-bottom:18px;padding:12px 0;border-top:1px solid #eee;border-bottom:1px solid #eee">
+      <div><span style="color:#6b6b80">Original Sale</span><br><strong>{{ ret.sale.sale_number }}</strong></div>
+      <div><span style="color:#6b6b80">Refund Method</span><br><strong>{{ ret.get_refund_method_display }}</strong></div>
+      <div><span style="color:#6b6b80">Processed By</span><br>{{ ret.processed_by.get_full_name|default:ret.processed_by.username }}</div>
+      {% if ret.reason %}
+      <div><span style="color:#6b6b80">Reason</span><br>{{ ret.reason }}</div>
+      {% endif %}
+    </div>
+
+    <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:16px">
+      <thead>
+        <tr style="border-bottom:2px solid #eee">
+          <th style="text-align:left;padding:6px 0;font-weight:600">Product</th>
+          <th style="text-align:center;padding:6px 4px;font-weight:600">Qty</th>
+          <th style="text-align:right;padding:6px 0;font-weight:600">Refund</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in ret.items.all %}
+        <tr style="border-bottom:1px solid #f0f0f0">
+          <td style="padding:7px 0">
+            {{ item.product.name }}
+            {% if item.variant %}
+            <span style="font-size:11px;color:#6b6b80">
+              ({% for a in item.variant.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %})
+            </span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;padding:7px 4px;color:#6b6b80">× {{ item.quantity }}</td>
+          <td style="text-align:right;padding:7px 0;font-weight:500">TSh {{ item.line_total|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;padding-top:10px;border-top:2px solid #1a1a2e">
+      <span>Total Refund</span>
+      <span>TSh {{ ret.total_refund|floatformat:0 }}</span>
+    </div>
+
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="window.print()" class="btn btn-outline btn-sm">Print</button>
+      <a href="{% url 'pos:receipt' ret.sale.id %}" class="btn btn-outline btn-sm" target="_blank">Original Receipt</a>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

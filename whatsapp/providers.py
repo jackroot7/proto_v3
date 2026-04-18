@@ -1,5 +1,5 @@
 """
-WhatsApp provider for Proto v3 — Twilio.
+WhatsApp provider for Proto v3 - Twilio.
 
 Configuration in config/settings.py or environment variables:
     TWILIO_ACCOUNT_SID   = 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
@@ -50,7 +50,7 @@ def send_whatsapp(to: str, message: str, media: str = None) -> dict:
     Send a WhatsApp message via Twilio.
 
     Args:
-        to:      Recipient phone (any format — auto-normalised to E.164)
+        to:      Recipient phone (any format - auto-normalised to E.164)
         message: Plain text message body
         media:   Optional URL to an image or PDF to attach
                  e.g. 'https://yourserver.com/reports/daily.pdf'

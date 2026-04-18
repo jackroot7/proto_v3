@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -7,7 +8,7 @@ from django.utils.text import slugify
 from django.db import transaction
 from shops.models import Shop
 from .models import (Product, Category, ProductVariant,
-                     VariantType, VariantAttribute, ProductVariantType)
+                     VariantType, VariantAttribute, ProductVariantType, ProductPriceTier)
 from .forms import ProductForm, CategoryForm
 
 
@@ -54,10 +55,11 @@ def product_detail(request, pk):
         product=product, shop=shop).select_related('created_by').order_by('-created_at')[:20]
     # All distinct variant type names for this product
     vtype_names = list(variant_types.values_list('variant_type__name', flat=True))
+    price_tiers = ProductPriceTier.objects.filter(product=product).select_related('variant').order_by('variant', 'min_quantity')
     return render(request, 'products/detail.html', {
         'product': product, 'variant_types': variant_types, 'variants': variants,
         'stock': stock, 'movements': movements, 'shop': shop,
-        'vtype_names': vtype_names,
+        'vtype_names': vtype_names, 'price_tiers': price_tiers,
     })
 
 
@@ -409,6 +411,49 @@ def bulk_upload(request):
         'errors': errors,
         'processed': processed,
     })
+
+
+@login_required
+@require_POST
+def save_price_tier(request, pk):
+    shop = get_current_shop(request)
+    product = get_object_or_404(Product, pk=pk, shop=shop)
+    variant_id = request.POST.get('variant_id') or None
+    variant = get_object_or_404(ProductVariant, pk=variant_id, product=product) if variant_id else None
+    try:
+        min_qty   = int(request.POST.get('min_quantity', 0))
+        unit_price = Decimal(str(request.POST.get('unit_price', 0)))
+    except Exception:
+        messages.error(request, 'Invalid tier data.')
+        return redirect('products:detail', pk=pk)
+    if min_qty < 1 or unit_price <= 0:
+        messages.error(request, 'Min quantity must be ≥ 1 and price must be > 0.')
+        return redirect('products:detail', pk=pk)
+    tier_id = request.POST.get('tier_id')
+    if tier_id:
+        tier = get_object_or_404(ProductPriceTier, pk=tier_id, product=product)
+        tier.min_quantity = min_qty
+        tier.unit_price   = unit_price
+        tier.save()
+        messages.success(request, 'Price tier updated.')
+    else:
+        ProductPriceTier.objects.update_or_create(
+            product=product, variant=variant, min_quantity=min_qty,
+            defaults={'unit_price': unit_price},
+        )
+        messages.success(request, 'Price tier added.')
+    return redirect('products:detail', pk=pk)
+
+
+@login_required
+@require_POST
+def delete_price_tier(request, pk, tier_pk):
+    shop = get_current_shop(request)
+    product = get_object_or_404(Product, pk=pk, shop=shop)
+    tier = get_object_or_404(ProductPriceTier, pk=tier_pk, product=product)
+    tier.delete()
+    messages.success(request, 'Price tier removed.')
+    return redirect('products:detail', pk=pk)
 
 
 @login_required

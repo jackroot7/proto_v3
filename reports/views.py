@@ -5,7 +5,7 @@ from django.db.models import Sum, Count, Avg, Max, Min, F, Q
 from django.utils import timezone
 from decimal import Decimal
 from shops.models import Shop
-from pos.models import Sale, SaleItem
+from pos.models import Sale, SaleItem, Return
 from expenses.models import Expense
 from stock.models import StockLevel, StockMovement
 from customers.models import Customer, CreditPayment
@@ -112,19 +112,23 @@ def report_overview(request, shop):
     start, end, period = get_date_range(request)
     today = timezone.now().date()
 
-    sales_qs   = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status='completed')
+    sales_qs   = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status__in=['completed', 'partially_returned'])
     items_qs   = SaleItem.objects.filter(sale__in=sales_qs)
     exp_qs     = Expense.objects.filter(shop=shop, date__range=(start, end))
+    returns_qs = Return.objects.filter(shop=shop, created_at__date__range=(start, end))
 
-    revenue    = sales_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
-    tax        = sales_qs.aggregate(t=Sum('tax_amount'))['t'] or Decimal('0')
-    txn_count  = sales_qs.count()
-    avg_sale   = revenue / txn_count if txn_count else Decimal('0')
-    cogs       = sum((i.buying_price * i.quantity for i in items_qs), Decimal('0'))
-    gross      = revenue - cogs
-    expenses   = exp_qs.aggregate(t=Sum('amount'))['t'] or Decimal('0')
-    net        = gross - expenses
-    margin     = round((float(gross) / float(revenue) * 100), 1) if revenue else 0
+    revenue       = sales_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    total_refunds = returns_qs.aggregate(t=Sum('total_refund'))['t'] or Decimal('0')
+    net_revenue   = revenue - total_refunds
+    tax           = sales_qs.aggregate(t=Sum('tax_amount'))['t'] or Decimal('0')
+    txn_count     = sales_qs.count()
+    returns_count = returns_qs.count()
+    avg_sale      = revenue / txn_count if txn_count else Decimal('0')
+    cogs          = sum((i.buying_price * i.quantity for i in items_qs), Decimal('0'))
+    gross         = net_revenue - cogs
+    expenses      = exp_qs.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+    net           = gross - expenses
+    margin        = round((float(gross) / float(net_revenue) * 100), 1) if net_revenue else 0
 
     # Payment split
     cash   = sales_qs.filter(payment_method='cash').aggregate(t=Sum('total'))['t'] or Decimal('0')
@@ -135,8 +139,9 @@ def report_overview(request, shop):
     series = []
     d = start
     while d <= end:
-        v = Sale.objects.filter(shop=shop, created_at__date=d, status='completed').aggregate(t=Sum('total'))['t'] or 0
-        series.append({'date': d.strftime('%d %b'), 'revenue': float(v)})
+        v = Sale.objects.filter(shop=shop, created_at__date=d, status__in=['completed', 'partially_returned']).aggregate(t=Sum('total'))['t'] or 0
+        r = Return.objects.filter(shop=shop, created_at__date=d).aggregate(t=Sum('total_refund'))['t'] or 0
+        series.append({'date': d.strftime('%d %b'), 'revenue': max(0, float(v) - float(r))})
         d += datetime.timedelta(days=1)
 
     # Best & worst day
@@ -146,16 +151,25 @@ def report_overview(request, shop):
     # Expense breakdown
     exp_cats = exp_qs.values('category__name').annotate(t=Sum('amount')).order_by('-t')
 
+    # Top products by revenue in period
+    top_products = items_qs.values('product__name').annotate(
+        qty=Sum('quantity'), rev=Sum('line_total')
+    ).order_by('-rev')[:5]
+
     payment_rows = [('Cash', cash, '#6146c1'), ('M-Pesa', mpesa, '#0D512B'), ('Credit', credit, '#EB5993')]
     ctx = dict(
         shop=shop, report='overview', period=period, start=start, end=end,
         periods=PERIODS,
         payment_rows=payment_rows,
-        revenue=revenue, tax=tax, txn_count=txn_count, avg_sale=avg_sale,
+        revenue=net_revenue, tax=tax, txn_count=txn_count, avg_sale=avg_sale,
+        transaction_count=txn_count,
         cogs=cogs, gross=gross, expenses=expenses, net=net, margin=margin,
+        expenses_total=expenses, tax_collected=tax,
+        total_refunds=total_refunds, returns_count=returns_count,
         cash=cash, mpesa=mpesa, credit=credit,
         series=json.dumps(series), best_day=best_day, worst_day=worst_day,
-        exp_cats=exp_cats,
+        exp_cats=exp_cats, exp_by_cat=exp_cats,
+        top_products=top_products,
     )
     return render(request, 'reports/overview.html', ctx)
 
@@ -164,12 +178,15 @@ def report_overview(request, shop):
 def report_sales(request, shop):
     start, end, period = get_date_range(request)
 
-    sales_qs  = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status='completed')
-    revenue   = sales_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
-    txn_count = sales_qs.count()
-    avg_sale  = revenue / txn_count if txn_count else Decimal('0')
-    max_sale  = sales_qs.aggregate(m=Max('total'))['m'] or Decimal('0')
-    min_sale  = sales_qs.aggregate(m=Min('total'))['m'] or Decimal('0')
+    sales_qs     = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status__in=['completed', 'partially_returned'])
+    returns_qs   = Return.objects.filter(shop=shop, created_at__date__range=(start, end))
+    total_refunds = returns_qs.aggregate(t=Sum('total_refund'))['t'] or Decimal('0')
+    returns_count = returns_qs.count()
+    revenue      = (sales_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')) - total_refunds
+    txn_count    = sales_qs.count()
+    avg_sale     = revenue / txn_count if txn_count else Decimal('0')
+    max_sale     = sales_qs.aggregate(m=Max('total'))['m'] or Decimal('0')
+    min_sale     = sales_qs.aggregate(m=Min('total'))['m'] or Decimal('0')
 
     # Hourly distribution
     hourly = [0] * 24
@@ -188,10 +205,11 @@ def report_sales(request, shop):
     series = []
     d = start
     while d <= end:
-        qs = Sale.objects.filter(shop=shop, created_at__date=d, status='completed')
+        qs = Sale.objects.filter(shop=shop, created_at__date=d, status__in=['completed', 'partially_returned'])
         v  = qs.aggregate(t=Sum('total'))['t'] or 0
+        r  = Return.objects.filter(shop=shop, created_at__date=d).aggregate(t=Sum('total_refund'))['t'] or 0
         c  = qs.count()
-        series.append({'date': d.strftime('%d %b'), 'revenue': float(v), 'count': c})
+        series.append({'date': d.strftime('%d %b'), 'revenue': max(0, float(v) - float(r)), 'count': c})
         d += datetime.timedelta(days=1)
 
     # Payment methods
@@ -207,6 +225,7 @@ def report_sales(request, shop):
         periods=PERIODS,
         revenue=revenue, txn_count=txn_count, avg_sale=avg_sale,
         max_sale=max_sale, min_sale=min_sale,
+        total_refunds=total_refunds, returns_count=returns_count,
         hourly=json.dumps(hourly),
         dow_labels=json.dumps(dow_labels), dow=json.dumps(dow), dow_rev=json.dumps(dow_rev),
         series=json.dumps(series),
@@ -223,7 +242,7 @@ def report_products(request, shop):
     items_qs = SaleItem.objects.filter(
         sale__shop=shop,
         sale__created_at__date__range=(start, end),
-        sale__status='completed'
+        sale__status__in=['completed', 'partially_returned']
     )
 
     # Top by revenue
@@ -290,7 +309,7 @@ def report_expenses(request, shop):
         d += datetime.timedelta(days=1)
 
     # Revenue vs expense comparison
-    rev_qs = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status='completed')
+    rev_qs = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status__in=['completed', 'partially_returned'])
     revenue = rev_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
     exp_ratio = round(float(total) / float(revenue) * 100, 1) if revenue else 0
 
@@ -315,7 +334,7 @@ def report_expenses(request, shop):
 def report_customers(request, shop):
     start, end, period = get_date_range(request)
 
-    sales_qs = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status='completed')
+    sales_qs = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status__in=['completed', 'partially_returned'])
 
     # Top customers by spend
     top_customers = sales_qs.filter(customer__isnull=False).values(
@@ -364,9 +383,29 @@ def report_stock(request, shop):
         'product', 'product__category', 'product__uom', 'variant'
     )
 
-    # Inventory value
-    total_cost_value   = sum(l.quantity * l.product.buying_price for l in levels if l.quantity > 0)
-    total_retail_value = sum(l.quantity * l.product.selling_price for l in levels if l.quantity > 0)
+    def _buy(l):
+        from decimal import Decimal as D
+        return (l.variant.effective_buying_price if l.variant else l.product.buying_price) or D('0')
+
+    def _sell(l):
+        from decimal import Decimal as D
+        return (l.variant.effective_selling_price if l.variant else l.product.selling_price) or D('0')
+
+    # Pre-compute per-row effective prices for the template
+    levels_data = []
+    for l in levels:
+        buy_price  = _buy(l)
+        sell_price = _sell(l)
+        levels_data.append({
+            'level':        l,
+            'buy_price':    buy_price,
+            'sell_price':   sell_price,
+            'cost_value':   l.quantity * buy_price  if l.quantity > 0 else 0,
+            'retail_value': l.quantity * sell_price if l.quantity > 0 else 0,
+        })
+
+    total_cost_value   = sum(d['cost_value']   for d in levels_data)
+    total_retail_value = sum(d['retail_value'] for d in levels_data)
     potential_profit   = total_retail_value - total_cost_value
 
     out_of_stock  = [l for l in levels if l.quantity <= 0]
@@ -386,6 +425,7 @@ def report_stock(request, shop):
         shop=shop, report='stock', period=period, start=start, end=end,
         periods=PERIODS,
         levels=levels,
+        levels_data=levels_data,
         total_cost_value=total_cost_value,
         total_retail_value=total_retail_value,
         potential_profit=potential_profit,
@@ -402,11 +442,15 @@ def report_stock(request, shop):
 def report_profit(request, shop):
     start, end, period = get_date_range(request)
 
-    sales_qs = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status='completed')
-    items_qs = SaleItem.objects.filter(sale__in=sales_qs)
-    exp_qs   = Expense.objects.filter(shop=shop, date__range=(start, end))
+    sales_qs     = Sale.objects.filter(shop=shop, created_at__date__range=(start, end), status__in=['completed', 'partially_returned'])
+    items_qs     = SaleItem.objects.filter(sale__in=sales_qs)
+    exp_qs       = Expense.objects.filter(shop=shop, date__range=(start, end))
+    returns_qs   = Return.objects.filter(shop=shop, created_at__date__range=(start, end))
+    total_refunds = returns_qs.aggregate(t=Sum('total_refund'))['t'] or Decimal('0')
+    returns_count = returns_qs.count()
 
-    revenue  = sales_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    gross_revenue = sales_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    revenue  = gross_revenue - total_refunds
     tax      = sales_qs.aggregate(t=Sum('tax_amount'))['t'] or Decimal('0')
     cogs     = sum((i.buying_price * i.quantity for i in items_qs), Decimal('0'))
     gross    = revenue - cogs
@@ -425,17 +469,21 @@ def report_profit(request, shop):
         for j in range(i):
             month_date = (month_date.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
         m_end   = (month_date.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - datetime.timedelta(days=1)
-        m_rev   = Sale.objects.filter(shop=shop, created_at__date__range=(month_date, m_end), status='completed').aggregate(t=Sum('total'))['t'] or 0
-        m_exp   = Expense.objects.filter(shop=shop, date__range=(month_date, m_end)).aggregate(t=Sum('amount'))['t'] or 0
-        m_items = SaleItem.objects.filter(sale__shop=shop, sale__created_at__date__range=(month_date, m_end), sale__status='completed')
-        m_cogs  = sum((i.buying_price * i.quantity for i in m_items), Decimal('0'))
-        m_net   = float(m_rev) - float(m_cogs) - float(m_exp)
-        monthly.append({'month': month_date.strftime('%b %Y'), 'revenue': float(m_rev), 'net': m_net})
+        m_rev    = Sale.objects.filter(shop=shop, created_at__date__range=(month_date, m_end), status__in=['completed', 'partially_returned']).aggregate(t=Sum('total'))['t'] or 0
+        m_ret    = Return.objects.filter(shop=shop, created_at__date__range=(month_date, m_end)).aggregate(t=Sum('total_refund'))['t'] or 0
+        m_rev    = max(0, float(m_rev) - float(m_ret))
+        m_exp    = Expense.objects.filter(shop=shop, date__range=(month_date, m_end)).aggregate(t=Sum('amount'))['t'] or 0
+        m_items  = SaleItem.objects.filter(sale__shop=shop, sale__created_at__date__range=(month_date, m_end), sale__status__in=['completed', 'partially_returned'])
+        m_cogs   = sum((i.buying_price * i.quantity for i in m_items), Decimal('0'))
+        m_net    = m_rev - float(m_cogs) - float(m_exp)
+        monthly.append({'month': month_date.strftime('%b %Y'), 'revenue': m_rev, 'net': m_net})
 
     ctx = dict(
         shop=shop, report='profit', period=period, start=start, end=end,
         periods=PERIODS,
-        revenue=revenue, tax=tax, cogs=cogs, gross=gross,
+        gross_revenue=gross_revenue, revenue=revenue,
+        total_refunds=total_refunds, returns_count=returns_count,
+        tax=tax, cogs=cogs, gross=gross,
         expenses=expenses, net=net, margin=margin,
         exp_cats=exp_cats,
         monthly_series=json.dumps(monthly),
@@ -570,15 +618,19 @@ def export_csv(request):
         for e in Expense.objects.filter(shop=shop, date__range=(start, end)).select_related('category').order_by('-date'):
             writer.writerow([e.date, e.category.name if e.category else '-', e.amount, e.description])
     elif report == 'stock':
-        writer.writerow(['Product', 'Category', 'UOM', 'Qty', 'Buying Price', 'Cost Value', 'Retail Value', 'Status'])
-        for l in StockLevel.objects.filter(shop=shop).select_related('product', 'product__category', 'product__uom'):
+        writer.writerow(['Product', 'Variant', 'Category', 'UOM', 'Qty', 'Buying Price', 'Cost Value', 'Retail Value', 'Status'])
+        for l in StockLevel.objects.filter(shop=shop).select_related('product', 'product__category', 'product__uom', 'variant'):
+            buy_price  = l.variant.effective_buying_price  if l.variant else l.product.buying_price
+            sell_price = l.variant.effective_selling_price if l.variant else l.product.selling_price
+            variant_label = ', '.join(a.value for a in l.variant.attributes.all()) if l.variant else '-'
             status = 'Out of stock' if l.quantity <= 0 else ('Low' if l.is_low else 'OK')
             writer.writerow([
-                l.product.name, l.product.category.name if l.product.category else '-',
+                l.product.name, variant_label,
+                l.product.category.name if l.product.category else '-',
                 l.product.uom.short_name if l.product.uom else '-',
-                l.quantity, l.product.buying_price,
-                l.quantity * l.product.buying_price,
-                l.quantity * l.product.selling_price,
+                l.quantity, buy_price,
+                l.quantity * buy_price,
+                l.quantity * sell_price,
                 status,
             ])
     else:
@@ -644,14 +696,18 @@ def export_excel(request):
         for e in Expense.objects.filter(shop=shop, date__range=(start, end)).select_related('category').order_by('-date'):
             ws.append([str(e.date), e.category.name if e.category else '-', float(e.amount), e.description])
     elif report == 'stock':
-        write_header(ws, ['Product', 'Category', 'UOM', 'Qty', 'Buy Price', 'Cost Value', 'Retail Value', 'Status'])
-        for l in StockLevel.objects.filter(shop=shop).select_related('product', 'product__category', 'product__uom'):
+        write_header(ws, ['Product', 'Variant', 'Category', 'UOM', 'Qty', 'Buy Price', 'Cost Value', 'Retail Value', 'Status'])
+        for l in StockLevel.objects.filter(shop=shop).select_related('product', 'product__category', 'product__uom', 'variant'):
+            buy_price  = l.variant.effective_buying_price  if l.variant else l.product.buying_price
+            sell_price = l.variant.effective_selling_price if l.variant else l.product.selling_price
+            variant_label = ', '.join(a.value for a in l.variant.attributes.all()) if l.variant else '-'
             status = 'Out' if l.quantity <= 0 else ('Low' if l.is_low else 'OK')
-            ws.append([l.product.name, l.product.category.name if l.product.category else '-',
+            ws.append([l.product.name, variant_label,
+                       l.product.category.name if l.product.category else '-',
                        l.product.uom.short_name if l.product.uom else '-',
-                       l.quantity, float(l.product.buying_price),
-                       float(l.quantity * l.product.buying_price),
-                       float(l.quantity * l.product.selling_price), status])
+                       l.quantity, float(buy_price),
+                       float(l.quantity * buy_price),
+                       float(l.quantity * sell_price), status])
 
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = max(len(str(col[0].value or '')), 12) + 2

@@ -5,9 +5,10 @@
 {% block content %}
 {% include "reports/_nav.html" %}
 <div class="kpi-grid">
-  <div class="kpi"><div class="kpi-label">Total Revenue</div><div class="kpi-value">TSh {{ revenue|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Net Revenue</div><div class="kpi-value">TSh {{ revenue|floatformat:0 }}</div><div class="kpi-sub">After returns</div></div>
   <div class="kpi"><div class="kpi-label">Transactions</div><div class="kpi-value">{{ txn_count }}</div></div>
   <div class="kpi"><div class="kpi-label">Avg Sale Value</div><div class="kpi-value">TSh {{ avg_sale|floatformat:0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Returns</div><div class="kpi-value" style="color:#e67e22">TSh {{ total_refunds|floatformat:0 }}</div><div class="kpi-sub">{{ returns_count }} refund{{ returns_count|pluralize }}</div></div>
   <div class="kpi"><div class="kpi-label">Largest Sale</div><div class="kpi-value">TSh {{ max_sale|floatformat:0 }}</div></div>
   <div class="kpi"><div class="kpi-label">Smallest Sale</div><div class="kpi-value">TSh {{ min_sale|floatformat:0 }}</div></div>
 </div>
@@ -30,8 +31,15 @@
 <div class="card">
   <div style="font-size:13px;font-weight:600;margin-bottom:10px">Recent transactions</div>
   <div class="table-wrap">
-    <table><thead><tr><th>Sale #</th><th>Date/Time</th><th>Customer</th><th>Payment</th><th>Total</th></tr></thead>
-    <tbody>{% for s in recent %}<tr><td><a href="/pos/sale/{{ s.id }}/receipt/" target="_blank" style="color:#6146c1;text-decoration:none">{{ s.sale_number }}</a></td><td style="font-size:12px;color:#6b6b80">{{ s.created_at|date:"d M H:i" }}</td><td>{{ s.customer.name|default:"Walk-in" }}</td><td><span class="badge badge-{% if s.payment_method == 'cash' %}gray{% elif s.payment_method == 'mpesa' %}green{% else %}amber{% endif %}">{{ s.get_payment_method_display }}</span></td><td style="font-weight:500">TSh {{ s.total|floatformat:0 }}</td></tr>{% empty %}<tr><td colspan="5" style="text-align:center;padding:20px;color:#6b6b80">No transactions in this period.</td></tr>{% endfor %}</tbody></table>
+    <table><thead><tr><th>Sale #</th><th>Date/Time</th><th>Customer</th><th>Payment</th><th>Status</th><th>Total</th></tr></thead>
+    <tbody>{% for s in recent %}<tr>
+      <td><a href="/pos/sale/{{ s.id }}/receipt/" target="_blank" style="color:#6146c1;text-decoration:none">{{ s.sale_number }}</a></td>
+      <td style="font-size:12px;color:#6b6b80">{{ s.created_at|date:"d M H:i" }}</td>
+      <td>{{ s.customer.name|default:"Walk-in" }}</td>
+      <td><span class="badge badge-{% if s.payment_method == 'cash' %}gray{% elif s.payment_method == 'mpesa' %}green{% else %}amber{% endif %}">{{ s.get_payment_method_display }}</span></td>
+      <td>{% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>{% elif s.status == 'partially_returned' %}<span class="badge badge-amber">Part. Returned</span>{% elif s.status == 'refunded' %}<span class="badge badge-red">Refunded</span>{% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}</td>
+      <td style="font-weight:500">TSh {{ s.total|floatformat:0 }}</td>
+    </tr>{% empty %}<tr><td colspan="6" style="text-align:center;padding:20px;color:#6b6b80">No transactions in this period.</td></tr>{% endfor %}</tbody></table>
   </div>
 </div>
 <script>

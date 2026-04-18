@@ -104,7 +104,7 @@ def send_daily_report(day_session, pdf_path):
         try:
             from django.core.mail import EmailMessage
             mail = EmailMessage(
-                subject=f"Daily Report — {day_session.shop.name} {day_session.date}",
+                subject=f"Daily Report - {day_session.shop.name} {day_session.date}",
                 body=f"Please find the daily report for {day_session.shop.name} attached.",
                 to=[email],
             )

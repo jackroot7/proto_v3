@@ -57,17 +57,24 @@
 .cart-customer select{font-size:12px;padding:5px 8px;width:100%}
 .cart-body{flex:1;overflow-y:auto;padding:5px}
 .cart-body::-webkit-scrollbar{width:0}
-.cart-item{display:flex;align-items:center;gap:6px;padding:6px;border-radius:5px}
+.cart-item{display:flex;flex-direction:column;padding:5px 6px;border-radius:5px;border-bottom:1px solid #f0f0f2}
 .cart-item:hover{background:#f7f7f8}
+.cart-item-row{display:flex;align-items:center;gap:6px}
 .cart-item-name{flex:1;font-size:11px;line-height:1.3}
 .cart-item-name .ci-variant{font-size:10px;color:#6b6b80}
+.cart-item-name .ci-tier{font-size:10px;color:#059669;font-weight:600}
 .qty-ctrl{display:flex;align-items:center;gap:2px}
 .qty-btn{width:20px;height:20px;border-radius:3px;background:#f0f0f2;border:1px solid #e4e4ec;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;color:#1a1a2e;user-select:none}
 .qty-num{width:18px;text-align:center;font-size:11px}
 .ci-price{font-size:11px;font-weight:500;min-width:52px;text-align:right}
+.ci-discount-row{display:flex;align-items:center;gap:4px;margin-top:3px;padding-left:2px}
+.ci-discount-row label{font-size:10px;color:#6b6b80;white-space:nowrap}
+.ci-discount-row input{width:80px;font-size:11px;padding:2px 5px;border:1px solid #d0d0dc;border-radius:4px;text-align:right}
+.ci-discount-row .ci-disc-saved{font-size:10px;color:#059669;margin-left:2px}
 .cart-footer{padding:11px 14px;border-top:1px solid #e4e4ec}
 .ctrow{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
 .ctrow.grand{font-size:15px;font-weight:600;border-top:1px solid #e4e4ec;padding-top:7px;margin-top:2px}
+.sale-disc-input{width:90px;font-size:12px;padding:3px 6px;border:1px solid #d0d0dc;border-radius:5px;text-align:right}
 .pay-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin:8px 0 10px}
 .pay-opt{padding:6px 4px;border:1px solid #e4e4ec;border-radius:5px;text-align:center;cursor:pointer;font-size:11px;color:#6b6b80;user-select:none}
 .pay-opt.on{border-color:#6146c1;color:#3d2a8f;background:#f0edfb}
@@ -216,6 +223,11 @@
     </div>
     <div class="cart-footer">
       <div class="ctrow"><span>Subtotal</span><span id="cart-subtotal">TSh 0</span></div>
+      <div class="ctrow" style="color:#6b6b80;align-items:center">
+        <span>Sale discount</span>
+        <input class="sale-disc-input" id="sale-discount-input" type="number" min="0" placeholder="0"
+               oninput="posSaleDiscount=parseFloat(this.value)||0;posUpdateTotals()">
+      </div>
       <div class="ctrow" style="color:#6b6b80"><span>Tax ({{ shop_settings.tax_rate|floatformat:0 }}%)</span><span id="cart-tax">TSh 0</span></div>
       <div class="ctrow grand"><span>Total</span><span id="cart-grand-total">TSh 0</span></div>
       <div style="font-size:10px;color:#6b6b80;margin-bottom:4px">Payment method</div>
@@ -278,17 +290,38 @@ const AUTO_PRINT              = {{ shop_settings.print_receipt_auto|yesno:"true,
 const SHOW_TAX_ON_RECEIPT     = {{ shop_settings.show_tax_on_receipt|yesno:"true,false" }};
 const SHOP_NAME               = "{{ shop.name|escapejs }}";
 
+// ── Tier data from Django ─────────────────────
+const PRODUCT_TIERS = {{ product_tiers_json|safe }};
+const VARIANT_TIERS = {{ variant_tiers_json|safe }};
+
+// ── Tier price lookup ─────────────────────────
+function posTieredPrice(pid, vid, qty, basePrice) {
+  // Try variant-specific tiers first, then product-level tiers
+  const vTiers = vid ? (VARIANT_TIERS[vid] || []) : [];
+  const pTiers = PRODUCT_TIERS[pid] || [];
+  const tiers = vTiers.length ? vTiers : pTiers;
+  // tiers are sorted by min_qty desc, pick first that qualifies
+  const match = tiers.find(t => qty >= t.min_qty);
+  return match ? match.price : basePrice;
+}
+
 // ── Cart ──────────────────────────────────────
 let posCart = [];
 let posPayMethod = 'cash';
 let lastSaleId = null;
+let posSaleDiscount = 0;
 
 function posAddToCart(pid, name, price, vid, vlabel) {
   const key = vid ? pid + '-' + vid : String(pid);
   const displayName = vlabel ? name + ' - ' + vlabel : name;
   const existing = posCart.find(i => i.key === key);
-  if (existing) { existing.qty++; }
-  else { posCart.push({ key, pid, vid: vid || null, name: displayName, price: parseFloat(price), qty: 1 }); }
+  if (existing) {
+    existing.qty++;
+    existing.price = posTieredPrice(pid, vid, existing.qty, existing.base_price);
+  } else {
+    const basePrice = parseFloat(price);
+    posCart.push({ key, pid, vid: vid || null, name: displayName, base_price: basePrice, price: basePrice, qty: 1, discount: 0 });
+  }
   posRenderCart();
   // Flash card
   const card = document.querySelector('[data-pid="' + pid + '"]');
@@ -299,8 +332,20 @@ function posChangeQty(key, delta) {
   const idx = posCart.findIndex(i => i.key === key);
   if (idx === -1) return;
   posCart[idx].qty += delta;
-  if (posCart[idx].qty <= 0) posCart.splice(idx, 1);
+  if (posCart[idx].qty <= 0) {
+    posCart.splice(idx, 1);
+  } else {
+    // Recalculate tier price on qty change
+    const item = posCart[idx];
+    item.price = posTieredPrice(item.pid, item.vid, item.qty, item.base_price);
+  }
   posRenderCart();
+}
+
+function posSetItemDiscount(key, val) {
+  const item = posCart.find(i => i.key === key);
+  if (item) { item.discount = parseFloat(val) || 0; }
+  posUpdateTotals();
 }
 
 function posRenderCart() {
@@ -316,25 +361,41 @@ function posRenderCart() {
     const nameHtml = parts.length > 1
       ? parts[0] + '<div class="ci-variant">' + parts.slice(1).join(' - ') + '</div>'
       : item.name;
+    const isTiered = item.price !== item.base_price;
+    const tierBadge = isTiered
+      ? '<div class="ci-tier">Bulk: TSh ' + posFmt(item.price) + ' each</div>'
+      : '';
+    const lineTotal = item.price * item.qty - item.discount;
+    const escapedKey = item.key.replace(/'/g, "\\'");
     return '<div class="cart-item">' +
-      '<div class="cart-item-name">' + nameHtml + '</div>' +
-      '<div class="qty-ctrl">' +
-        '<div class="qty-btn" onclick="posChangeQty(\'' + item.key + '\',-1)">−</div>' +
-        '<div class="qty-num">' + item.qty + '</div>' +
-        '<div class="qty-btn" onclick="posChangeQty(\'' + item.key + '\',1)">+</div>' +
+      '<div class="cart-item-row">' +
+        '<div class="cart-item-name">' + nameHtml + tierBadge + '</div>' +
+        '<div class="qty-ctrl">' +
+          '<div class="qty-btn" onclick="posChangeQty(\'' + escapedKey + '\',-1)">−</div>' +
+          '<div class="qty-num">' + item.qty + '</div>' +
+          '<div class="qty-btn" onclick="posChangeQty(\'' + escapedKey + '\',1)">+</div>' +
+        '</div>' +
+        '<div class="ci-price">TSh ' + posFmt(lineTotal) + '</div>' +
       '</div>' +
-      '<div class="ci-price">TSh ' + posFmt(item.price * item.qty) + '</div>' +
+      '<div class="ci-discount-row">' +
+        '<label>Item disc:</label>' +
+        '<input type="number" min="0" placeholder="0" value="' + (item.discount || '') + '"' +
+          ' oninput="posSetItemDiscount(\'' + escapedKey + '\',this.value)">' +
+        (item.discount > 0 ? '<span class="ci-disc-saved">-TSh ' + posFmt(item.discount) + '</span>' : '') +
+      '</div>' +
     '</div>';
   }).join('');
   posUpdateTotals();
 }
 
 function posUpdateTotals() {
-  const sub   = posCart.reduce((s, i) => s + i.price * i.qty, 0);
-  const tax   = Math.round(sub * POS_TAX_RATE);
-  const total = sub + tax;
+  const itemsTotal = posCart.reduce((s, i) => s + (i.price * i.qty - (i.discount || 0)), 0);
+  const saleDisc   = posSaleDiscount || 0;
+  const sub        = Math.max(0, itemsTotal - saleDisc);
+  const tax        = Math.round(sub * POS_TAX_RATE);
+  const total      = sub + tax;
   const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  s('cart-subtotal',    'TSh ' + posFmt(sub));
+  s('cart-subtotal',    'TSh ' + posFmt(Math.max(0, itemsTotal)));
   s('cart-tax',         'TSh ' + posFmt(tax));
   s('cart-grand-total', 'TSh ' + posFmt(total));
 }
@@ -360,19 +421,22 @@ function posCompleteSale() {
     if (customerEl) customerEl.focus();
     return;
   }
-  const sub   = posCart.reduce((s, i) => s + i.price * i.qty, 0);
-  const tax   = Math.round(sub * POS_TAX_RATE);
-  const total = sub + tax;
+  const itemsTotal = posCart.reduce((s, i) => s + (i.price * i.qty - (i.discount || 0)), 0);
+  const saleDisc   = posSaleDiscount || 0;
+  const sub        = Math.max(0, itemsTotal - saleDisc);
+  const tax        = Math.round(sub * POS_TAX_RATE);
+  const total      = sub + tax;
   const btn   = document.getElementById('checkout-btn');
   if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
   fetch('/pos/sale/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': posGetCsrf() },
     body: JSON.stringify({
-      items: posCart.map(i => ({ product_id: i.pid, variant_id: i.vid, quantity: i.qty })),
+      items: posCart.map(i => ({ product_id: i.pid, variant_id: i.vid, quantity: i.qty, item_discount: i.discount || 0 })),
       payment_method: posPayMethod,
       amount_paid: total,
       customer_id: customerId || null,
+      sale_discount: saleDisc,
     })
   })
   .then(r => r.json())
@@ -405,6 +469,7 @@ function posCompleteSale() {
 function posShowReceipt(data, sub, tax, total) {
   lastSaleId = data.sale_id;
   const snapshot = posCart.map(i => ({...i}));
+  const saleDisc  = posSaleDiscount || 0;
   const now = new Date();
   const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   s('r-sale-num', data.sale_number);
@@ -422,12 +487,22 @@ function posShowReceipt(data, sub, tax, total) {
   if (!SHOW_TAX_ON_RECEIPT) { const tr = document.getElementById('r-tax-row'); if (tr) tr.style.display = 'none'; }
   const itemsEl = document.getElementById('r-items');
   if (itemsEl) {
-    itemsEl.innerHTML = snapshot.map(i =>
-      '<div style="display:flex;justify-content:space-between;margin-bottom:2px">' +
-        '<span>' + i.name + ' <span style="color:#888;font-size:10px">×' + i.qty + '</span></span>' +
-        '<span>' + posFmt(i.price * i.qty) + '</span>' +
-      '</div>'
-    ).join('');
+    let html = snapshot.map(i => {
+      const lineTotal = i.price * i.qty - (i.discount || 0);
+      const isTiered  = i.price !== i.base_price;
+      const discNote  = i.discount > 0 ? ' <span style="color:#888;font-size:10px">-TSh ' + posFmt(i.discount) + '</span>' : '';
+      const tierNote  = isTiered ? ' <span style="color:#059669;font-size:9px">bulk</span>' : '';
+      return '<div style="display:flex;justify-content:space-between;margin-bottom:2px">' +
+        '<span>' + i.name + ' <span style="color:#888;font-size:10px">×' + i.qty + '</span>' + tierNote + discNote + '</span>' +
+        '<span>' + posFmt(lineTotal) + '</span>' +
+      '</div>';
+    }).join('');
+    if (saleDisc > 0) {
+      html += '<div style="display:flex;justify-content:space-between;margin-top:4px;color:#059669;font-size:11px">' +
+        '<span>Sale discount</span><span>-TSh ' + posFmt(saleDisc) + '</span>' +
+      '</div>';
+    }
+    itemsEl.innerHTML = html;
   }
   document.getElementById('receipt-modal').classList.add('on');
 }
@@ -491,6 +566,10 @@ document.addEventListener('DOMContentLoaded', function() {
   if (btnNew)   btnNew.addEventListener('click', () => {
     document.getElementById('receipt-modal').classList.remove('on');
     lastSaleId = null;
+    posSaleDiscount = 0;
+    const discInput = document.getElementById('sale-discount-input');
+    if (discInput) discInput.value = '';
+    posRenderCart();
   });
 
   // Simple product cards
@@ -597,6 +676,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target === qcModal) closeQuickCustomer();
     });
   }
+  const searchEl = document.getElementById('pos-search');
   if (searchEl) {
     searchEl.addEventListener('input', function() {
       const q = this.value.toLowerCase().trim();

@@ -33,7 +33,7 @@
     <div class="stat-value" style="{% if total_profit >= 0 %}color:#0D512B{% else %}color:#9b2626{% endif %}">
       TSh {{ total_profit|floatformat:0 }}
     </div>
-    <div class="stat-sub" style="color:#6b6b80">Gross - after cost of goods</div>
+    <div class="stat-sub" style="color:#6b6b80">Net of COGS &amp; discounts</div>
   </div>
 
   <div class="stat-card">
@@ -47,6 +47,14 @@
         vs yesterday
       {% else %}<span style="color:#6b6b80">-</span>{% endif %}
     </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">Returns Today</div>
+    <div class="stat-value" style="{% if returns_count_today > 0 %}color:#e67e22{% else %}color:#0D512B{% endif %}">
+      {% if returns_count_today > 0 %}TSh {{ total_refunds_today|floatformat:0 }}{% else %}—{% endif %}
+    </div>
+    <div class="stat-sub" style="color:#6b6b80">{{ returns_count_today }} refund{{ returns_count_today|pluralize }}</div>
   </div>
 
   <div class="stat-card">
@@ -268,10 +276,11 @@
       </div>
       <div style="text-align:right">
         <div style="font-weight:600;color:#6146c1">TSh {{ sale.total|floatformat:0 }}</div>
-        <div style="font-size:10px">
+        <div style="font-size:10px;display:flex;gap:3px;justify-content:flex-end;flex-wrap:wrap">
           {% if sale.payment_method == 'cash' %}<span class="badge badge-gray">Cash</span>
           {% elif sale.payment_method == 'mpesa' %}<span class="badge badge-green">M-Pesa</span>
           {% else %}<span class="badge badge-pink">Credit</span>{% endif %}
+          {% if sale.status == 'partially_returned' %}<span class="badge badge-amber">Part. Ret.</span>{% endif %}
         </div>
       </div>
     </div>

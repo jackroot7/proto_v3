@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Return History{% endblock %}
+{% block page_title %}Return History{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'pos:history' %}" class="btn btn-outline btn-sm">Sales History</a>
+{% endblock %}
+{% block content %}
+
+<div class="card" style="padding:14px 18px;margin-bottom:16px">
+  <form method="get" style="display:flex;gap:10px;align-items:center">
+    <label style="font-size:13px;font-weight:600;color:#444">Date</label>
+    <input type="date" name="date" value="{{ filter_date|date:'Y-m-d' }}"
+           style="padding:6px 10px;border:1px solid #d0d0dc;border-radius:8px;font-size:13px">
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    {% if filter_date != today %}
+    <a href="?" class="btn btn-outline btn-sm">Today</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Return #</th>
+          <th>Original Sale</th>
+          <th>Time</th>
+          <th>Items</th>
+          <th>Total Refund</th>
+          <th>Refund Method</th>
+          <th>Processed By</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in returns %}
+        <tr>
+          <td style="font-weight:500">{{ r.return_number }}</td>
+          <td style="color:#2563eb">
+            <a href="{% url 'pos:receipt' r.sale.id %}" target="_blank" style="color:#2563eb;text-decoration:none">
+              {{ r.sale.sale_number }}
+            </a>
+          </td>
+          <td style="color:#6b6b80;font-size:12px">{{ r.created_at|date:"H:i" }}</td>
+          <td>{{ r.items.count }}</td>
+          <td style="font-weight:500">TSh {{ r.total_refund|floatformat:0 }}</td>
+          <td><span class="badge badge-gray">{{ r.get_refund_method_display }}</span></td>
+          <td style="font-size:12px">{{ r.processed_by.get_full_name|default:r.processed_by.username|default:"-" }}</td>
+          <td>
+            <a href="{% url 'pos:return_detail' r.pk %}" class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:28px;color:#6b6b80">No returns for this date.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% include "_pagination.html" %}
+  </div>
+</div>
+
+{% endblock %}

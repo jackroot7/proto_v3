@@ -1,104 +1,176 @@
 {% extends "base.html" %}
-{% block title %}Sales History
-<script>
-function sendWaReceipt(saleId, btn) {
-  const orig = btn.textContent;
-  btn.textContent = '...';
-  btn.disabled = true;
-  fetch('/whatsapp/receipt/' + saleId + '/', {
-    method: 'POST',
-    headers: { 'X-CSRFToken': getCsrfFromCookie() }
-  }).then(r => r.json()).then(d => {
-    btn.textContent = d.success ? '✓' : '✗';
-    btn.disabled = false;
-    setTimeout(() => { btn.textContent = orig; }, 3000);
-    if (!d.success) alert('WhatsApp failed: ' + d.error);
-  });
-}
-function getCsrfFromCookie() {
-  const m = document.cookie.match(/csrftoken=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : '';
-}
-</script>
-{% endblock %}
-{% block page_title %}Today's Sales
-<script>
-function sendWaReceipt(saleId, btn) {
-  const orig = btn.textContent;
-  btn.textContent = '...';
-  btn.disabled = true;
-  fetch('/whatsapp/receipt/' + saleId + '/', {
-    method: 'POST',
-    headers: { 'X-CSRFToken': getCsrfFromCookie() }
-  }).then(r => r.json()).then(d => {
-    btn.textContent = d.success ? '✓' : '✗';
-    btn.disabled = false;
-    setTimeout(() => { btn.textContent = orig; }, 3000);
-    if (!d.success) alert('WhatsApp failed: ' + d.error);
-  });
-}
-function getCsrfFromCookie() {
-  const m = document.cookie.match(/csrftoken=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : '';
-}
-</script>
-{% endblock %}
-{% block topbar_actions %}<a href="{% url 'pos:index' %}" class="btn btn-primary btn-sm">Back to POS</a>
-<script>
-function sendWaReceipt(saleId, btn) {
-  const orig = btn.textContent;
-  btn.textContent = '...';
-  btn.disabled = true;
-  fetch('/whatsapp/receipt/' + saleId + '/', {
-    method: 'POST',
-    headers: { 'X-CSRFToken': getCsrfFromCookie() }
-  }).then(r => r.json()).then(d => {
-    btn.textContent = d.success ? '✓' : '✗';
-    btn.disabled = false;
-    setTimeout(() => { btn.textContent = orig; }, 3000);
-    if (!d.success) alert('WhatsApp failed: ' + d.error);
-  });
-}
-function getCsrfFromCookie() {
-  const m = document.cookie.match(/csrftoken=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : '';
-}
-</script>
+{% block title %}Sales History{% endblock %}
+{% block page_title %}Sales History{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'pos:return_history' %}" class="btn btn-outline btn-sm">Return History</a>
+  <a href="{% url 'pos:index' %}" class="btn btn-primary btn-sm">Back to POS</a>
 {% endblock %}
 {% block content %}
+
+<div class="card" style="padding:14px 18px;margin-bottom:16px">
+  <form method="get" style="display:flex;gap:10px;align-items:center">
+    <label style="font-size:13px;font-weight:600;color:#444">Date</label>
+    <input type="date" name="date" value="{{ filter_date|date:'Y-m-d' }}"
+           style="padding:6px 10px;border:1px solid #d0d0dc;border-radius:8px;font-size:13px">
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    {% if filter_date != today %}
+    <a href="?" class="btn btn-outline btn-sm">Today</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if messages %}
+<div style="margin-bottom:14px">
+  {% for m in messages %}
+  <div style="padding:10px 14px;border-radius:8px;margin-bottom:6px;font-size:13px;background:{% if m.tags == 'error' %}#fff0f0{% else %}#f0fff4{% endif %};border:1px solid {% if m.tags == 'error' %}#f5c6c6{% else %}#b2e5c8{% endif %}">
+    {{ m }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="card">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Sale #</th><th>Time</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Cashier</th><th>Status</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>Sale #</th>
+          <th>Time</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Cashier</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         {% for s in sales %}
+        {% with session_open=s.day_session.is_open %}
         <tr>
           <td style="font-weight:500">{{ s.sale_number }}</td>
           <td style="color:#6b6b80;font-size:12px">{{ s.created_at|date:"H:i" }}</td>
           <td style="color:#6b6b80">{{ s.customer.name|default:"Walk-in" }}</td>
           <td>{{ s.items.count }}</td>
           <td style="font-weight:500">TSh {{ s.total|floatformat:0 }}</td>
-          <td><span class="badge {% if s.payment_method == 'mpesa' %}badge-green{% elif s.payment_method == 'credit' %}badge-pink{% else %}badge-gray{% endif %}">{{ s.get_payment_method_display }}</span></td>
+          <td>
+            <span class="badge {% if s.payment_method == 'mpesa' %}badge-green{% elif s.payment_method == 'credit' %}badge-pink{% else %}badge-gray{% endif %}">
+              {{ s.get_payment_method_display }}
+            </span>
+          </td>
           <td style="font-size:12px">{{ s.cashier.get_full_name|default:s.cashier.username|default:"-" }}</td>
-          <td>{% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>{% elif s.status == 'voided' %}<span class="badge badge-red">Voided</span>{% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}</td>
-          <td style="display:flex;gap:5px;align-items:center">
-            <a href="{% url 'pos:receipt' s.pk %}" class="btn btn-outline btn-sm" target="_blank">Receipt</a>
-            {% if s.customer and s.customer.phone %}
-            <button class="btn btn-outline btn-sm" style="color:#25d366;border-color:#25d366;font-size:11px"
-                    onclick="sendWaReceipt({{ s.pk }}, this)" title="Send receipt via WhatsApp">📱 WA</button>
+          <td>
+            {% if s.status == 'completed' %}
+              <span class="badge badge-green">Completed</span>
+            {% elif s.status == 'voided' %}
+              <span class="badge badge-red">Voided</span>
+            {% elif s.status == 'refunded' %}
+              <span class="badge badge-pink">Refunded</span>
+            {% elif s.status == 'partially_returned' %}
+              <span class="badge badge-pink">Partial Return</span>
+            {% else %}
+              <span class="badge badge-gray">{{ s.get_status_display }}</span>
             {% endif %}
           </td>
+          <td style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+
+            <a href="{% url 'pos:receipt' s.pk %}" class="btn btn-outline btn-sm" target="_blank">Receipt</a>
+
+            {% if s.customer and s.customer.phone %}
+            <button class="btn btn-outline btn-sm" style="color:#25d366;border-color:#25d366;font-size:11px"
+                    onclick="sendWaReceipt({{ s.pk }}, this)" title="Send receipt via WhatsApp">WA</button>
+            {% endif %}
+
+            {% if s.status in 'completed,partially_returned' %}
+              {% if session_open %}
+                <a href="{% url 'pos:create_return' s.pk %}" class="btn btn-outline btn-sm"
+                   style="color:#2563eb;border-color:#2563eb">Return</a>
+
+                {% if current_role != 'cashier' %}
+                <a href="{% url 'pos:edit_sale' s.pk %}" class="btn btn-outline btn-sm"
+                   style="color:#d97706;border-color:#d97706">Edit</a>
+
+                <button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626"
+                        onclick="voidSale({{ s.pk }}, '{{ s.sale_number }}')">Void</button>
+                {% endif %}
+              {% else %}
+                <span style="font-size:11px;color:#9ca3af;font-style:italic">Day closed</span>
+              {% endif %}
+            {% endif %}
+
+          </td>
         </tr>
+        {% endwith %}
         {% empty %}
-        <tr><td colspan="9" style="text-align:center;padding:28px;color:#6b6b80">No sales today yet.</td></tr>
+        <tr>
+          <td colspan="9" style="text-align:center;padding:28px;color:#6b6b80">No sales for this date.</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
-{% include "_pagination.html" %}
+    {% include "_pagination.html" %}
+  </div>
+</div>
+
+<!-- Void modal -->
+<div id="voidModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:380px;max-width:90vw">
+    <div style="font-weight:700;font-size:16px;margin-bottom:6px">Void Sale</div>
+    <div style="color:#6b6b80;font-size:13px;margin-bottom:14px">
+      Voiding <strong id="voidSaleNum"></strong> will restore all stock. This cannot be undone.
+    </div>
+    <textarea id="voidReason" rows="2" placeholder="Reason (optional)"
+              style="width:100%;padding:8px 10px;border:1px solid #d0d0dc;border-radius:8px;font-size:13px;margin-bottom:14px;resize:vertical"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeVoidModal()" class="btn btn-outline btn-sm">Cancel</button>
+      <button id="voidConfirmBtn" class="btn btn-sm"
+              style="background:#dc2626;color:#fff;border:none;cursor:pointer">Confirm Void</button>
+    </div>
   </div>
 </div>
 
 <script>
+let pendingVoidId = null;
+
+function voidSale(saleId, saleNum) {
+  pendingVoidId = saleId;
+  document.getElementById('voidSaleNum').textContent = saleNum;
+  document.getElementById('voidReason').value = '';
+  document.getElementById('voidModal').style.display = 'flex';
+}
+
+function closeVoidModal() {
+  document.getElementById('voidModal').style.display = 'none';
+  pendingVoidId = null;
+}
+
+document.getElementById('voidConfirmBtn').addEventListener('click', function () {
+  if (!pendingVoidId) return;
+  const btn = this;
+  btn.textContent = '...';
+  btn.disabled = true;
+  fetch(`/pos/sale/${pendingVoidId}/void/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCsrfFromCookie(),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'reason=' + encodeURIComponent(document.getElementById('voidReason').value),
+  })
+  .then(r => r.json())
+  .then(d => {
+    closeVoidModal();
+    if (d.success) {
+      location.reload();
+    } else {
+      alert('Error: ' + d.error);
+      btn.textContent = 'Confirm Void';
+      btn.disabled = false;
+    }
+  });
+});
+
 function sendWaReceipt(saleId, btn) {
   const orig = btn.textContent;
   btn.textContent = '...';
@@ -113,9 +185,11 @@ function sendWaReceipt(saleId, btn) {
     if (!d.success) alert('WhatsApp failed: ' + d.error);
   });
 }
+
 function getCsrfFromCookie() {
   const m = document.cookie.match(/csrftoken=([^;]+)/);
   return m ? decodeURIComponent(m[1]) : '';
 }
 </script>
+
 {% endblock %}

@@ -376,4 +376,4 @@ def _apply_sync_payload(model, operation, payload):
         return 'noted'
 
     else:
-        return f'unknown model {model!r} — skipped'
+        return f'unknown model {model!r} - skipped'

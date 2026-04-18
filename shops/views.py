@@ -102,20 +102,24 @@ def dashboard(request):
     day_session = DaySession.objects.filter(shop=shop, date=today).first()
 
     # ── Today's sales ────────────────────────────────────────────
-    today_qs = Sale.objects.filter(shop=shop, created_at__date=today, status='completed')
-    total_sales    = today_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    from pos.models import Return as SaleReturn
+    today_qs = Sale.objects.filter(shop=shop, created_at__date=today, status__in=['completed', 'partially_returned'])
+    total_sales_gross = today_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    total_refunds_today = SaleReturn.objects.filter(shop=shop, created_at__date=today).aggregate(t=Sum('total_refund'))['t'] or Decimal('0')
+    returns_count_today = SaleReturn.objects.filter(shop=shop, created_at__date=today).count()
+    total_sales    = total_sales_gross - total_refunds_today
     total_tax      = today_qs.aggregate(t=Sum('tax_amount'))['t'] or Decimal('0')
     txn_count      = today_qs.count()
 
-    # Profit: sum of (unit_price - buying_price) * qty for all items today
+    # Profit: (unit_price - buying_price) * qty minus item discounts, net of refunds
     today_items = SaleItem.objects.filter(sale__in=today_qs)
     total_profit = sum(
-        (item.unit_price - item.buying_price) * item.quantity
+        (item.unit_price - item.buying_price) * item.quantity - (item.discount or Decimal('0'))
         for item in today_items
-    )
+    ) - total_refunds_today
 
     # ── Yesterday comparison ─────────────────────────────────────
-    yesterday_qs    = Sale.objects.filter(shop=shop, created_at__date=yesterday, status='completed')
+    yesterday_qs    = Sale.objects.filter(shop=shop, created_at__date=yesterday, status__in=['completed', 'partially_returned'])
     yesterday_sales = yesterday_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
     yesterday_txns  = yesterday_qs.count()
 
@@ -128,8 +132,9 @@ def dashboard(request):
     txn_change   = pct_change(txn_count, yesterday_txns)
 
     # ── This month ───────────────────────────────────────────────
-    month_qs           = Sale.objects.filter(shop=shop, created_at__date__gte=first_of_month, status='completed')
-    monthly_revenue    = month_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    month_qs           = Sale.objects.filter(shop=shop, created_at__date__gte=first_of_month, status__in=['completed', 'partially_returned'])
+    month_refunds      = SaleReturn.objects.filter(shop=shop, created_at__date__gte=first_of_month).aggregate(t=Sum('total_refund'))['t'] or Decimal('0')
+    monthly_revenue    = (month_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')) - month_refunds
     monthly_txns       = month_qs.count()
     monthly_expenses   = Expense.objects.filter(shop=shop, date__gte=first_of_month).aggregate(t=Sum('amount'))['t'] or Decimal('0')
     month_items        = SaleItem.objects.filter(sale__in=month_qs)
@@ -138,11 +143,12 @@ def dashboard(request):
     monthly_net        = monthly_gross - float(monthly_expenses)
 
     # ── Last month comparison ─────────────────────────────────────
-    last_month_qs      = Sale.objects.filter(shop=shop, created_at__date__range=(first_of_last_month, last_month_end), status='completed')
+    last_month_qs      = Sale.objects.filter(shop=shop, created_at__date__range=(first_of_last_month, last_month_end), status__in=['completed', 'partially_returned'])
     last_month_revenue = last_month_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
     revenue_change     = pct_change(monthly_revenue, last_month_revenue)
 
     # ── Payment breakdown today ──────────────────────────────────
+    # Payment totals remain gross (returns tracked separately)
     cash_total   = today_qs.filter(payment_method='cash').aggregate(t=Sum('total'))['t'] or Decimal('0')
     mpesa_total  = today_qs.filter(payment_method='mpesa').aggregate(t=Sum('total'))['t'] or Decimal('0')
     credit_total = today_qs.filter(payment_method='credit').aggregate(t=Sum('total'))['t'] or Decimal('0')
@@ -168,7 +174,7 @@ def dashboard(request):
     top_products = SaleItem.objects.filter(
         sale__shop=shop,
         sale__created_at__date__gte=first_of_month,
-        sale__status='completed'
+        sale__status__in=['completed', 'partially_returned']
     ).values('product__name', 'product__uom__short_name').annotate(
         total_qty=Sum('quantity'),
         total_rev=Sum('line_total')
@@ -179,9 +185,10 @@ def dashboard(request):
     for i in range(6, -1, -1):
         d = today - datetime.timedelta(days=i)
         day_total = Sale.objects.filter(
-            shop=shop, created_at__date=d, status='completed'
+            shop=shop, created_at__date=d, status__in=['completed', 'partially_returned']
         ).aggregate(t=Sum('total'))['t'] or 0
-        weekly_data.append({'date': d.strftime('%a'), 'total': float(day_total)})
+        day_refunds = SaleReturn.objects.filter(shop=shop, created_at__date=d).aggregate(t=Sum('total_refund'))['t'] or 0
+        weekly_data.append({'date': d.strftime('%a'), 'total': max(0, float(day_total) - float(day_refunds))})
 
     # ── Hourly sales today (for heatmap) ─────────────────────────
     hourly = [0] * 24
@@ -190,6 +197,9 @@ def dashboard(request):
 
     # ── Recent transactions ───────────────────────────────────────
     recent_sales = today_qs.select_related('customer', 'cashier').order_by('-created_at')[:5]
+
+    # ── AI recommendations unsold check ──────────────────────────
+    # (keep sold_products filter consistent)
 
     # ── AI recommendations ────────────────────────────────────────
     recommendations = []
@@ -214,7 +224,7 @@ def dashboard(request):
     all_products = set(Product.objects.filter(shop=shop, is_active=True).values_list('id', flat=True))
     sold_products = set(
         SaleItem.objects.filter(
-            sale__shop=shop, sale__created_at__date__gte=first_of_month, sale__status='completed'
+            sale__shop=shop, sale__created_at__date__gte=first_of_month, sale__status__in=['completed', 'partially_returned']
         ).values_list('product_id', flat=True).distinct()
     )
     unsold = all_products - sold_products
@@ -256,6 +266,9 @@ def dashboard(request):
         # Credit
         'total_credit_owed': total_credit_owed,
         'credit_customer_count': credit_customer_count,
+        # Returns
+        'total_refunds_today': total_refunds_today,
+        'returns_count_today': returns_count_today,
         # Charts & lists
         'weekly_data': weekly_data,
         'hourly_data': hourly,
@@ -281,8 +294,11 @@ def day_summary(request):
     shop = get_object_or_404(Shop, id=shop_id)
     today = timezone.now().date()
 
-    today_qs = Sale.objects.filter(shop=shop, created_at__date=today, status='completed')
-    total    = today_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    from pos.models import Return as SaleReturn
+    today_qs     = Sale.objects.filter(shop=shop, created_at__date=today, status__in=['completed', 'partially_returned'])
+    returns_today = SaleReturn.objects.filter(shop=shop, created_at__date=today)
+    total_refunds = returns_today.aggregate(t=Sum('total_refund'))['t'] or Decimal('0')
+    total    = (today_qs.aggregate(t=Sum('total'))['t'] or Decimal('0')) - total_refunds
     cash     = today_qs.filter(payment_method='cash').aggregate(t=Sum('total'))['t'] or Decimal('0')
     mpesa    = today_qs.filter(payment_method='mpesa').aggregate(t=Sum('total'))['t'] or Decimal('0')
     credit   = today_qs.filter(payment_method='credit').aggregate(t=Sum('total'))['t'] or Decimal('0')
@@ -291,7 +307,7 @@ def day_summary(request):
 
     # Profit
     items = SaleItem.objects.filter(sale__in=today_qs)
-    profit = sum((i.unit_price - i.buying_price) * i.quantity for i in items)
+    profit = sum((i.unit_price - i.buying_price) * i.quantity - (i.discount or Decimal('0')) for i in items) - total_refunds
 
     expenses = Expense.objects.filter(shop=shop, date=today).aggregate(t=Sum('amount'))['t'] or Decimal('0')
 
@@ -346,15 +362,16 @@ def close_day(request):
         today = timezone.now().date()
         session = get_object_or_404(DaySession, shop=shop, date=today, status='open')
 
-        from pos.models import Sale
+        from pos.models import Sale, Return as SaleReturn
         from django.db.models import Sum
-        today_sales = Sale.objects.filter(shop=shop, created_at__date=today, status='completed')
+        today_sales   = Sale.objects.filter(shop=shop, created_at__date=today, status__in=['completed', 'partially_returned'])
+        today_returns = SaleReturn.objects.filter(shop=shop, created_at__date=today).aggregate(t=Sum('total_refund'))['t'] or 0
 
         session.status = 'closed'
         session.closed_by = request.user
         session.closed_at = timezone.now()
         session.closing_cash = request.POST.get('closing_cash', 0)
-        session.total_sales = today_sales.aggregate(t=Sum('total'))['t'] or 0
+        session.total_sales = (today_sales.aggregate(t=Sum('total'))['t'] or 0) - today_returns
         session.total_cash = today_sales.filter(payment_method='cash').aggregate(t=Sum('total'))['t'] or 0
         session.total_mpesa = today_sales.filter(payment_method='mpesa').aggregate(t=Sum('total'))['t'] or 0
         session.total_credit = today_sales.filter(payment_method='credit').aggregate(t=Sum('total'))['t'] or 0

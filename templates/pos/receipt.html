@@ -21,24 +21,25 @@
     max-width: 340px;
     background: #fff;
     position: relative;
-    padding: 28px 24px 20px;
-    /* Serrated top edge */
-    -webkit-mask-image:
-      radial-gradient(circle at 50% 0%, transparent 6px, white 6px),
-      radial-gradient(ellipse 6px 7px at 0% 0%, white 5px, transparent 6px),
-      radial-gradient(ellipse 6px 7px at 100% 0%, white 5px, transparent 6px);
-    -webkit-mask-size: 12px 12px, 12px 12px, 12px 12px;
-    -webkit-mask-repeat: repeat-x, no-repeat, no-repeat;
-    -webkit-mask-position: 0 0, 0 0, 100% 0;
-    mask-image:
-      radial-gradient(circle at 50% 0%, transparent 6px, white 6px),
-      radial-gradient(ellipse 6px 7px at 0% 0%, white 5px, transparent 6px),
-      radial-gradient(ellipse 6px 7px at 100% 0%, white 5px, transparent 6px);
-    mask-size: 12px 12px, 12px 12px, 12px 12px;
-    mask-repeat: repeat-x, no-repeat, no-repeat;
-    mask-position: 0 0, 0 0, 100% 0;
-    /* Bottom serrated */
-    padding-bottom: 28px;
+    padding: 28px 24px 28px;
+  }
+
+  /* Serrated top edge via pseudo-element (matches bottom technique) */
+  .receipt-paper::before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: -6px;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background:
+      radial-gradient(circle at 50% 0%, #d0d0d0 6px, transparent 6px),
+      radial-gradient(circle at 0% 0%, transparent 6px, #fff 6px),
+      radial-gradient(circle at 100% 0%, transparent 6px, #fff 6px);
+    background-size: 12px 12px, 12px 12px, 12px 12px;
+    background-repeat: repeat-x, no-repeat, no-repeat;
+    background-position: 0 0, 0 0, 100% 0;
   }
 
   /* Serrated bottom via pseudo element */
@@ -289,6 +290,29 @@
       <span>{{ sale.tax_amount|floatformat:0 }}</span>
     </div>
   </div>
+
+  {% with all_returns=sale.returns.all %}
+  {% if all_returns %}
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+  <div class="section-title" style="color:#c0392b">Returns</div>
+  <div class="stars">* * * * * * * * * * * * * * * * * *</div>
+  {% for ret in all_returns %}
+  <div style="font-size:10px;color:#666;margin-bottom:4px">{{ ret.return_number }} — {{ ret.created_at|date:"d M H:i" }}</div>
+  <table class="receipt-table">
+    {% for ri in ret.items.all %}
+    <tr>
+      <td>{{ ri.product.name }} <span class="qty">×{{ ri.quantity }}</span></td>
+      <td class="r" style="color:#c0392b">-{{ ri.line_total|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="total-row" style="font-size:12px;color:#c0392b;margin-top:2px">
+    <span>Refund ({{ ret.get_refund_method_display }})</span>
+    <span>-{{ ret.total_refund|floatformat:0 }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% endwith %}
 
   <div class="stars">* * * * * * * * * * * * * * * * * *</div>
 

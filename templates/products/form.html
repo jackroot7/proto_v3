@@ -1,21 +1,173 @@
 {% extends "base.html" %}
 {% block title %}{{ action }} Product{% endblock %}
 {% block page_title %}{{ action }} Product{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'products:list' %}" class="btn btn-outline btn-sm">Cancel</a>
+{% endblock %}
 {% block content %}
-<div class="card" style="max-width:640px">
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {% for field in form %}
+
+{% if messages %}
+{% for m in messages %}
+<div style="padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;
+  background:{% if m.tags == 'error' %}#fff0f0{% else %}#f0fff4{% endif %};
+  border:1px solid {% if m.tags == 'error' %}#f5c6c6{% else %}#b2e5c8{% endif %}">{{ m }}</div>
+{% endfor %}
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" style="max-width:700px">
+  {% csrf_token %}
+
+  <!-- Basic Info -->
+  <div class="card" style="margin-bottom:16px;padding:20px 24px">
+    <div style="font-size:13px;font-weight:700;color:#6b6b80;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">Basic Information</div>
+
     <div class="form-group">
-      <label>{{ field.label }}</label>
-      {{ field }}
-      {% if field.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ field.errors.0 }}</div>{% endif %}
+      <label>Product Name <span style="color:#dc2626">*</span></label>
+      {{ form.name }}
+      {% if form.name.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.name.errors.0 }}</div>{% endif %}
     </div>
-    {% endfor %}
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button type="submit" class="btn btn-primary">{{ action }} Product</button>
-      <a href="{% url 'products:list' %}" class="btn btn-outline">Cancel</a>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group">
+        <label>Category</label>
+        {{ form.category }}
+        {% if form.category.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.category.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label>Unit of Measure</label>
+        {{ form.uom }}
+        {% if form.uom.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.uom.errors.0 }}</div>{% endif %}
+      </div>
     </div>
-  </form>
-</div>
+
+    <div class="form-group">
+      <label>Description</label>
+      {{ form.description }}
+      {% if form.description.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.description.errors.0 }}</div>{% endif %}
+    </div>
+
+    <div class="form-group">
+      <label>Product Image</label>
+      {% if product.image %}
+      <div style="margin-bottom:8px">
+        <img src="{{ product.image.url }}" alt="" style="height:60px;border-radius:6px;object-fit:cover">
+      </div>
+      {% endif %}
+      {{ form.image }}
+    </div>
+  </div>
+
+  <!-- Pricing -->
+  <div class="card" style="margin-bottom:16px;padding:20px 24px">
+    <div style="font-size:13px;font-weight:700;color:#6b6b80;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Pricing</div>
+
+    <div id="pricingNote" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:12px;color:#1d4ed8;margin-bottom:14px">
+      This product has variants — base prices are optional. If left blank, each variant must have its own price.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:6px">
+          Selling Price
+          <span id="sellingOptional" style="display:none;font-size:11px;font-weight:400;color:#6b6b80;background:#f0f0f5;padding:1px 7px;border-radius:10px">Optional</span>
+        </label>
+        {{ form.selling_price }}
+        {% if form.selling_price.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.selling_price.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:6px">
+          Buying / Cost Price
+          <span id="buyingOptional" style="display:none;font-size:11px;font-weight:400;color:#6b6b80;background:#f0f0f5;padding:1px 7px;border-radius:10px">Optional</span>
+        </label>
+        {{ form.buying_price }}
+        {% if form.buying_price.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.buying_price.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        {{ form.tax_inclusive }}
+        <span>Prices are tax-inclusive</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Stock & Variants -->
+  <div class="card" style="margin-bottom:16px;padding:20px 24px">
+    <div style="font-size:13px;font-weight:700;color:#6b6b80;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">Stock & Variants</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          {{ form.track_stock }}
+          <span>Track stock levels</span>
+        </label>
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          {{ form.is_active }}
+          <span>Product is active</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group" id="lowStockGroup">
+      <label>Low Stock Threshold</label>
+      {{ form.low_stock_threshold }}
+      <div style="font-size:11px;color:#6b6b80;margin-top:3px">Alert when stock falls below this number</div>
+      {% if form.low_stock_threshold.errors %}<div style="font-size:12px;color:#9b2626;margin-top:3px">{{ form.low_stock_threshold.errors.0 }}</div>{% endif %}
+    </div>
+
+    <div style="border-top:1px solid #eee;padding-top:14px;margin-top:4px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        {{ form.has_variants }}
+        <span>This product has variants <span style="color:#6b6b80;font-weight:400">(e.g. different sizes, colours)</span></span>
+      </label>
+      <div id="variantHint" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;font-size:12px;color:#15803d;margin-top:10px">
+        After saving, go to the product detail page to add variants and their individual prices.
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px">
+    <button type="submit" class="btn btn-primary">{{ action }} Product</button>
+    <a href="{% url 'products:list' %}" class="btn btn-outline">Cancel</a>
+  </div>
+
+</form>
+
+<script>
+(function () {
+  const hasVariantsChk = document.getElementById('{{ form.has_variants.id_for_label }}');
+  const trackStockChk  = document.getElementById('{{ form.track_stock.id_for_label }}');
+
+  function syncVariants() {
+    const on = hasVariantsChk && hasVariantsChk.checked;
+    const hint = document.getElementById('variantHint');
+    const note = document.getElementById('pricingNote');
+    const so   = document.getElementById('sellingOptional');
+    const bo   = document.getElementById('buyingOptional');
+    if (hint) hint.style.display = on ? 'block' : 'none';
+    if (note) note.style.display = on ? 'block' : 'none';
+    if (so)   so.style.display   = on ? 'inline-block' : 'none';
+    if (bo)   bo.style.display   = on ? 'inline-block' : 'none';
+  }
+
+  function syncTrackStock() {
+    const on = trackStockChk && trackStockChk.checked;
+    const grp = document.getElementById('lowStockGroup');
+    if (grp) grp.style.display = on ? 'block' : 'none';
+  }
+
+  if (hasVariantsChk) {
+    hasVariantsChk.addEventListener('change', syncVariants);
+    syncVariants();
+  }
+  if (trackStockChk) {
+    trackStockChk.addEventListener('change', syncTrackStock);
+    syncTrackStock();
+  }
+})();
+</script>
+
 {% endblock %}

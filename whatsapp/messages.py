@@ -1,5 +1,5 @@
 """
-WhatsApp message composers for Proto v3 — Twilio.
+WhatsApp message composers for Proto v3 - Twilio.
 
 Twilio sends free-form text, so we compose the full message here.
 Each function returns (message_text, media_url_or_none).
@@ -14,7 +14,7 @@ def daily_report_message(day_session, pdf_url: str = None) -> tuple:
     pdf_url: publicly accessible URL to the PDF (Twilio fetches it for attachment).
     """
     lines = [
-        f"📊 *{day_session.shop.name} — Daily Report*",
+        f"📊 *{day_session.shop.name} - Daily Report*",
         f"📅 {day_session.date.strftime('%A, %d %B %Y')}",
         f"",
         f"💰 Revenue: TSh {float(day_session.total_sales or 0):,.0f}",
@@ -49,13 +49,13 @@ def credit_reminder_message(customer) -> tuple:
 def receipt_message(sale) -> tuple:
     """Returns (message, None) for a sale receipt sent to customer."""
     lines = [
-        f"🧾 *Receipt — {sale.sale_number}*",
+        f"🧾 *Receipt - {sale.sale_number}*",
         f"📍 {sale.shop.name}",
         f"📅 {sale.created_at.strftime('%d %b %Y %H:%M')}",
         f"",
     ]
     for item in sale.items.select_related('product').all():
-        lines.append(f"• {item.product.name} ×{item.quantity} — TSh {float(item.line_total):,.0f}")
+        lines.append(f"• {item.product.name} ×{item.quantity} - TSh {float(item.line_total):,.0f}")
     lines += [
         f"",
         f"💰 *Total: TSh {float(sale.total):,.0f}*",
@@ -70,7 +70,7 @@ def receipt_message(sale) -> tuple:
 def low_stock_message(shop_name: str, items) -> tuple:
     """Returns (message, None) for a low stock alert."""
     lines = [
-        f"⚠️ *Low Stock Alert — {shop_name}*",
+        f"⚠️ *Low Stock Alert - {shop_name}*",
         f"",
     ]
     for item in items:
@@ -83,7 +83,7 @@ def low_stock_message(shop_name: str, items) -> tuple:
 def purchase_order_message(order) -> tuple:
     """Returns (message, None) for a purchase order notification to supplier."""
     lines = [
-        f"📦 *Purchase Order — {order.order_number}*",
+        f"📦 *Purchase Order - {order.order_number}*",
         f"From: {order.shop.name}",
         f"Date: {order.order_date.strftime('%d %b %Y')}",
         f"",

@@ -1,9 +1,9 @@
 """
 Sync Engine Utilities
 ─────────────────────
-queue_for_sync(instance, operation)  — add any model instance to the upload queue
-build_payload(instance)              — serialise a model instance to a clean JSON dict
-auto_sync_if_online()                — non-blocking background sync attempt
+queue_for_sync(instance, operation)  - add any model instance to the upload queue
+build_payload(instance)              - serialise a model instance to a clean JSON dict
+auto_sync_if_online()                - non-blocking background sync attempt
 """
 
 import json
@@ -151,7 +151,7 @@ def queue_for_sync(instance, operation='create'):
     """
     Add a model instance to the sync queue.
     De-duplicates: if a pending entry for the same object exists, updates it.
-    Never raises — sync failure must never block the main operation.
+    Never raises - sync failure must never block the main operation.
     """
     try:
         payload = build_payload(instance)

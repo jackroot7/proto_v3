@@ -18,6 +18,7 @@ class Sale(models.Model):
         ('completed', 'Completed'),
         ('voided', 'Voided'),
         ('refunded', 'Refunded'),
+        ('partially_returned', 'Partially Returned'),
     ]
 
     sale_number = models.CharField(max_length=20, unique=True, blank=True)
@@ -35,7 +36,7 @@ class Sale(models.Model):
     amount_paid = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     change_given = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='completed')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='completed')
     voided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='voided_sales')
     void_reason = models.TextField(blank=True)
     notes = models.TextField(blank=True)
@@ -77,3 +78,60 @@ class SaleItem(models.Model):
     @property
     def profit(self):
         return (self.unit_price - self.buying_price) * self.quantity
+
+    @property
+    def qty_returned(self):
+        return sum(ri.quantity for ri in self.returns.all())
+
+    @property
+    def qty_returnable(self):
+        return self.quantity - self.qty_returned
+
+
+class Return(models.Model):
+    REFUND_METHODS = [
+        ('cash', 'Cash'),
+        ('mpesa', 'M-Pesa'),
+        ('credit', 'Store Credit'),
+    ]
+
+    return_number = models.CharField(max_length=20, unique=True, blank=True)
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='returns')
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='returns')
+    day_session = models.ForeignKey(DaySession, on_delete=models.SET_NULL, null=True, blank=True, related_name='returns')
+    processed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='processed_returns')
+    reason = models.TextField(blank=True)
+    refund_method = models.CharField(max_length=10, choices=REFUND_METHODS, default='cash')
+    total_refund = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    synced = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Return {self.return_number} for {self.sale.sale_number}"
+
+    def save(self, *args, **kwargs):
+        if not self.return_number:
+            today = timezone.now().strftime('%Y%m%d')
+            count = Return.objects.filter(shop=self.shop, created_at__date=timezone.now().date()).count() + 1
+            self.return_number = f"RET-{today}-{count:04d}"
+        super().save(*args, **kwargs)
+
+
+class ReturnItem(models.Model):
+    return_obj = models.ForeignKey(Return, on_delete=models.CASCADE, related_name='items')
+    sale_item = models.ForeignKey(SaleItem, on_delete=models.CASCADE, related_name='returns')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.SET_NULL, null=True, blank=True)
+    quantity = models.IntegerField()
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    line_total = models.DecimalField(max_digits=14, decimal_places=2)
+
+    def save(self, *args, **kwargs):
+        self.line_total = self.unit_price * self.quantity
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity} (return)"
