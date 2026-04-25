@@ -41,8 +41,11 @@
         <label>Notes</label>
         <textarea name="notes" class="form-control" rows="2" placeholder="Any notes...">{{ motorcycle.notes|default:'' }}</textarea>
       </div>
-      <div style="display:flex;gap:10px;margin-top:20px;">
-        <button type="submit" class="btn btn-primary">{% if motorcycle %}Save Changes{% else %}Add Motorcycle{% endif %}</button>
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+        <button type="submit" name="action" value="save" class="btn btn-primary">{% if motorcycle %}Save Changes{% else %}Add Motorcycle{% endif %}</button>
+        {% if not motorcycle %}
+        <button type="submit" name="action" value="save_add" class="btn btn-outline">Save & Add Another</button>
+        {% endif %}
         <a href="{% url 'delivery:motorcycles' %}" class="btn btn-outline">Cancel</a>
       </div>
     </form>

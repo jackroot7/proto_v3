@@ -39,10 +39,14 @@
     </tbody>
   </table>
 </div>
+<div style="margin-top:14px;">
+  <a href="{% url 'delivery:motorcycle_add' %}" class="btn btn-primary">+ Add Another Motorcycle</a>
+</div>
 {% else %}
 <div style="text-align:center;padding:60px;color:#6b6b80;">
   <div style="font-size:40px;margin-bottom:12px;">🏍️</div>
-  <p>No motorcycles registered. <a href="{% url 'delivery:motorcycle_add' %}">Add one</a>.</p>
+  <p style="margin-bottom:16px;">No motorcycles registered yet.</p>
+  <a href="{% url 'delivery:motorcycle_add' %}" class="btn btn-primary">+ Add Motorcycle</a>
 </div>
 {% endif %}
 {% endblock %}

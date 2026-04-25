@@ -486,6 +486,8 @@ def motorcycle_form(request, pk=None):
                     notes=request.POST.get('notes', '').strip(),
                 )
                 messages.success(request, f"Motorcycle {plate} added.")
+                if request.POST.get('action') == 'save_add':
+                    return redirect('delivery:motorcycle_add')
             return redirect('delivery:motorcycles')
 
     return render(request, 'delivery/motorcycle_form.html', {
@@ -541,6 +543,8 @@ def driver_form(request, pk=None):
                     motorcycle=moto,
                 )
                 messages.success(request, f"Driver {name} added.")
+                if request.POST.get('action') == 'save_add':
+                    return redirect('delivery:driver_add')
             return redirect('delivery:drivers')
 
     return render(request, 'delivery/driver_form.html', {

@@ -39,10 +39,14 @@
     </tbody>
   </table>
 </div>
+<div style="margin-top:14px;">
+  <a href="{% url 'delivery:driver_add' %}" class="btn btn-primary">+ Add Another Driver</a>
+</div>
 {% else %}
 <div style="text-align:center;padding:60px;color:#6b6b80;">
   <div style="font-size:40px;margin-bottom:12px;">👷</div>
-  <p>No drivers yet. <a href="{% url 'delivery:driver_add' %}">Add a driver</a> to get started.</p>
+  <p style="margin-bottom:16px;">No drivers yet.</p>
+  <a href="{% url 'delivery:driver_add' %}" class="btn btn-primary">+ Add Driver</a>
 </div>
 {% endif %}
 {% endblock %}
