@@ -746,3 +746,5 @@ def edit_sale(request, sale_id):
         'items_data': items_data,
         'shop': shop,
     })
+
+

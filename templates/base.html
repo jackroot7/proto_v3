@@ -49,6 +49,9 @@
       <a href="{% url 'pos:index' %}" class="nav-item {% if 'pos' in request.resolver_match.namespace %}active{% endif %}">
         <span class="nav-icon">&#8861;</span> Point of Sale
       </a>
+      <a href="{% url 'delivery:board' %}" class="nav-item {% if request.resolver_match.namespace == 'delivery' %}active{% endif %}">
+        <span class="nav-icon">&#127949;</span> Delivery
+      </a>
 
       <div class="nav-section">Products</div>
       <a href="{% url 'products:list' %}" class="nav-item {% if request.resolver_match.namespace == 'products' %}active{% endif %}">

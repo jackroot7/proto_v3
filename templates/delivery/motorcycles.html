@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Motorcycles{% endblock %}
+{% block page_title %}Motorcycles{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'delivery:motorcycle_add' %}" class="btn btn-primary">+ Add Motorcycle</a>
+  <a href="{% url 'delivery:board' %}" class="btn btn-outline">Board</a>
+{% endblock %}
+
+{% block content %}
+{% if motorcycles %}
+<div style="background:#fff;border:1px solid #e5e5f0;border-radius:8px;overflow:hidden;">
+  <table class="data-table" style="width:100%">
+    <thead>
+      <tr>
+        <th>Plate Number</th>
+        <th>Make / Model</th>
+        <th>Color</th>
+        <th>Status</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in motorcycles %}
+      <tr>
+        <td style="font-weight:600;">{{ m.plate_number }}</td>
+        <td>{{ m.make }} {{ m.model }}</td>
+        <td>{{ m.color|default:"—" }}</td>
+        <td>
+          {% if m.status == 'active' %}<span class="badge badge-green" style="font-size:10px;">Active</span>
+          {% elif m.status == 'maintenance' %}<span class="badge badge-amber" style="font-size:10px;">Maintenance</span>
+          {% else %}<span class="badge" style="font-size:10px;background:#f3f4f6;color:#6b7280;">Inactive</span>{% endif %}
+        </td>
+        <td style="font-size:12px;color:#6b6b80;">{{ m.notes|truncatechars:40|default:"—" }}</td>
+        <td><a href="{% url 'delivery:motorcycle_edit' m.pk %}" class="btn btn-outline btn-sm">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div style="text-align:center;padding:60px;color:#6b6b80;">
+  <div style="font-size:40px;margin-bottom:12px;">🏍️</div>
+  <p>No motorcycles registered. <a href="{% url 'delivery:motorcycle_add' %}">Add one</a>.</p>
+</div>
+{% endif %}
+{% endblock %}

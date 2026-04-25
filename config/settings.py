@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'settings_app',
     'units',
     'whatsapp',
+    'delivery',
 ]
 
 MIDDLEWARE = [

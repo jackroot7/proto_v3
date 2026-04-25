@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Drivers{% endblock %}
+{% block page_title %}Delivery Drivers{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'delivery:driver_add' %}" class="btn btn-primary">+ Add Driver</a>
+  <a href="{% url 'delivery:motorcycles' %}" class="btn btn-outline">Motorcycles</a>
+  <a href="{% url 'delivery:board' %}" class="btn btn-outline">Board</a>
+{% endblock %}
+
+{% block content %}
+{% if drivers %}
+<div style="background:#fff;border:1px solid #e5e5f0;border-radius:8px;overflow:hidden;">
+  <table class="data-table" style="width:100%">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Motorcycle</th>
+        <th>Open Orders</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in drivers %}
+      <tr>
+        <td style="font-weight:600;">{{ d.name }}</td>
+        <td>{{ d.phone|default:"—" }}</td>
+        <td>{% if d.motorcycle %}{{ d.motorcycle.plate_number }}{% else %}<span style="color:#9ca3af">Unassigned</span>{% endif %}</td>
+        <td style="text-align:center;">{{ d.active_orders_count }}</td>
+        <td>
+          {% if d.is_active %}<span class="badge badge-green" style="font-size:10px;">Active</span>
+          {% else %}<span class="badge" style="font-size:10px;background:#f3f4f6;color:#6b7280;">Inactive</span>{% endif %}
+        </td>
+        <td><a href="{% url 'delivery:driver_edit' d.pk %}" class="btn btn-outline btn-sm">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div style="text-align:center;padding:60px;color:#6b6b80;">
+  <div style="font-size:40px;margin-bottom:12px;">👷</div>
+  <p>No drivers yet. <a href="{% url 'delivery:driver_add' %}">Add a driver</a> to get started.</p>
+</div>
+{% endif %}
+{% endblock %}

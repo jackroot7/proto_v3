@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{% if motorcycle %}Edit{% else %}Add{% endif %} Motorcycle{% endblock %}
+{% block page_title %}{% if motorcycle %}Edit Motorcycle{% else %}Add Motorcycle{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'delivery:motorcycles' %}" class="btn btn-outline btn-sm">← Motorcycles</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:480px">
+  <div style="background:#fff;border:1px solid #e5e5f0;border-radius:10px;padding:24px;">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Plate Number <span style="color:#9b2626">*</span></label>
+        <input type="text" name="plate_number" value="{{ motorcycle.plate_number|default:'' }}" class="form-control" placeholder="e.g. T123 ABC" required>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label>Make</label>
+          <input type="text" name="make" value="{{ motorcycle.make|default:'' }}" class="form-control" placeholder="e.g. Bajaj">
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" name="model" value="{{ motorcycle.model|default:'' }}" class="form-control" placeholder="e.g. Boxer">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <input type="text" name="color" value="{{ motorcycle.color|default:'' }}" class="form-control" placeholder="e.g. Black">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status" class="form-control">
+          <option value="active" {% if not motorcycle or motorcycle.status == 'active' %}selected{% endif %}>Active</option>
+          <option value="maintenance" {% if motorcycle.status == 'maintenance' %}selected{% endif %}>Maintenance</option>
+          <option value="inactive" {% if motorcycle.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Any notes...">{{ motorcycle.notes|default:'' }}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button type="submit" class="btn btn-primary">{% if motorcycle %}Save Changes{% else %}Add Motorcycle{% endif %}</button>
+        <a href="{% url 'delivery:motorcycles' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

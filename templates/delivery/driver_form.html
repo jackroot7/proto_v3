@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{% if driver %}Edit{% else %}Add{% endif %} Driver{% endblock %}
+{% block page_title %}{% if driver %}Edit Driver{% else %}Add Driver{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'delivery:drivers' %}" class="btn btn-outline btn-sm">← Drivers</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:480px">
+  <div style="background:#fff;border:1px solid #e5e5f0;border-radius:10px;padding:24px;">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Full Name <span style="color:#9b2626">*</span></label>
+        <input type="text" name="name" value="{{ driver.name|default:'' }}" class="form-control" placeholder="e.g. Juma Hassan" required>
+      </div>
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="text" name="phone" value="{{ driver.phone|default:'' }}" class="form-control" placeholder="e.g. 0712 345 678">
+      </div>
+      <div class="form-group">
+        <label>Assigned Motorcycle</label>
+        <select name="motorcycle" class="form-control">
+          <option value="">— No motorcycle assigned —</option>
+          {% for m in motorcycles %}
+            <option value="{{ m.id }}" {% if driver.motorcycle_id == m.id %}selected{% endif %}>
+              {{ m.plate_number }} — {{ m.make }} {{ m.model }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if driver %}
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" name="is_active" {% if driver.is_active %}checked{% endif %}> Active
+        </label>
+      </div>
+      {% endif %}
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button type="submit" class="btn btn-primary">{% if driver %}Save Changes{% else %}Add Driver{% endif %}</button>
+        <a href="{% url 'delivery:drivers' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

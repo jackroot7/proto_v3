@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+{% block title %}New Delivery Order{% endblock %}
+{% block page_title %}New Delivery Order{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'delivery:board' %}" class="btn btn-outline btn-sm">← Board</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.del-wrap{display:grid;grid-template-columns:1fr 360px;gap:14px;height:calc(100vh - 90px)}
+.del-left{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.pos-filter-bar{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.pos-filter-bar input{flex:1;padding:6px 10px;font-size:12px}
+.pos-cat-pills{display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0}
+.pos-cat-pills a{padding:3px 10px;border-radius:20px;font-size:11px;border:1px solid #e4e4ec;color:#6b6b80;text-decoration:none;background:#fff;white-space:nowrap}
+.pos-cat-pills a.on{background:#6146c1;color:#fff;border-color:#6146c1}
+.pos-products{flex:1;overflow-y:auto}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px}
+.pgrid .pcard{background:#fff;border:1px solid #e4e4ec;border-radius:8px;padding:8px;cursor:pointer;transition:border-color .1s}
+.pgrid .pcard:hover{border-color:#6146c1}
+.pgrid .pcard.oos{opacity:.5;cursor:not-allowed}
+.pgrid .pcard .pc-img{width:100%;aspect-ratio:1;background:#f7f7f8;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px}
+.pgrid .pcard .pc-name{font-size:11px;font-weight:500;color:#1a1a2e;margin-bottom:2px;line-height:1.3}
+.pgrid .pcard .pc-price{font-size:12px;color:#6146c1;font-weight:600}
+.pgrid .pcard .pc-stock{font-size:10px;color:#6b6b80;margin-top:1px}
+.pgrid .pcard .pc-stock.low{color:#9b2626;font-weight:500}
+.pgrid .pcard .vchips{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.pgrid .pcard .vchip{font-size:9px;padding:2px 6px;border-radius:3px;background:#f0edfb;color:#3d2a8f;cursor:pointer;border:1px solid #c4b8f0}
+.pgrid .pcard .vchip:hover{background:#6146c1;color:#fff}
+/* Right panel */
+.cart-panel{background:#fff;border:1px solid #e4e4ec;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.cart-header{padding:10px 14px;border-bottom:1px solid #e4e4ec;font-size:13px;font-weight:600;flex-shrink:0}
+.cart-section{padding:7px 10px;border-bottom:1px solid #f0f0f4;flex-shrink:0}
+.cart-section label{display:block;font-size:10px;color:#6b6b80;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+.cart-section input,.cart-section select,.cart-section textarea{width:100%;font-size:12px;padding:5px 8px;border:1px solid #e4e4ec;border-radius:5px;box-sizing:border-box}
+.cart-section textarea{height:40px;resize:none}
+/* Stop tabs */
+.stop-tabs{display:flex;gap:3px;padding:6px 10px 0;border-bottom:1px solid #e4e4ec;flex-shrink:0;overflow-x:auto}
+.stop-tabs::-webkit-scrollbar{height:0}
+.stop-tab{padding:4px 10px;border-radius:6px 6px 0 0;border:1px solid #e4e4ec;border-bottom:none;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;background:#f8f8fc;color:#6b6b80;user-select:none}
+.stop-tab.active{background:#fff;color:#4f46e5;border-color:#c4b8f0;font-weight:600}
+.stop-tab.add-stop{background:transparent;border:1px dashed #c4b8f0;color:#6146c1}
+.stop-tab.add-stop:hover{background:#f0edfb}
+/* Stop body */
+.stop-body{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.stop-fields{padding:7px 10px;border-bottom:1px solid #f0f0f4;flex-shrink:0}
+.stop-fields label{display:block;font-size:10px;color:#6b6b80;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+.stop-fields input,.stop-fields select,.stop-fields textarea{width:100%;font-size:12px;padding:5px 8px;border:1px solid #e4e4ec;border-radius:5px;box-sizing:border-box;margin-bottom:4px}
+.stop-fields textarea{height:36px;resize:none;margin-bottom:0}
+.stop-items{flex:1;padding:5px;overflow-y:auto;min-height:60px}
+.cart-item{display:flex;align-items:center;gap:6px;padding:5px 6px;border-bottom:1px solid #f0f0f2}
+.cart-item-name{flex:1;font-size:11px;line-height:1.3}
+.cart-item-name .ci-variant{font-size:10px;color:#6b6b80}
+.qty-ctrl{display:flex;align-items:center;gap:2px}
+.qty-btn{width:22px;height:22px;border-radius:4px;background:#f0f0f2;border:1px solid #e4e4ec;cursor:pointer;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;color:#1a1a2e;user-select:none;flex-shrink:0}
+.qty-btn:hover{background:#e0e0e8}
+.qty-num{width:22px;text-align:center;font-size:12px;font-weight:600}
+.ci-price{font-size:11px;font-weight:500;min-width:56px;text-align:right;flex-shrink:0}
+.cart-footer{padding:10px 14px;border-top:1px solid #e4e4ec;flex-shrink:0}
+.ctrow{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;color:#6b6b80}
+.ctrow.grand{font-size:15px;font-weight:600;color:#1a1a2e;border-top:1px solid #e4e4ec;padding-top:7px;margin-top:4px}
+.del-save-btn{width:100%;background:#0D512B;color:#fff;border:none;border-radius:7px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
+.del-save-btn:disabled{opacity:.5;cursor:not-allowed}
+.active-stop-hint{font-size:10px;color:#6146c1;font-weight:500;padding:4px 10px;background:#f0edfb;flex-shrink:0}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not day_session %}
+<div class="alert alert-danger" style="margin-bottom:10px">
+  Day is not open. <a href="#" onclick="showOpenDayModal();return false;" style="font-weight:600">Open the day</a> first.
+</div>
+{% endif %}
+
+<div class="del-wrap">
+  <!-- LEFT: Products -->
+  <div class="del-left">
+    <div class="pos-filter-bar">
+      <form method="get" style="display:contents">
+        <input type="search" name="q" value="{{ search }}" placeholder="Search products...">
+        <select name="category" onchange="this.form.submit()">
+          <option value="">All categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.slug }}" {% if selected_category == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline btn-sm">Go</button>
+      </form>
+    </div>
+    <div class="pos-cat-pills">
+      <a href="{% url 'delivery:create_order' %}{% if search %}?q={{ search }}{% endif %}" class="{% if not selected_category %}on{% endif %}">All</a>
+      {% for cat in categories %}
+        <a href="{% url 'delivery:create_order' %}?category={{ cat.slug }}{% if search %}&q={{ search }}{% endif %}"
+           class="{% if selected_category == cat.slug %}on{% endif %}">{{ cat.name }}</a>
+      {% endfor %}
+    </div>
+    <div class="pos-products">
+      <div class="pgrid" id="product-container">
+        {% for item in product_data %}
+        {% with p=item.product %}
+        {% if p.has_variants %}
+        <div class="pcard">
+          <div class="pc-img">📦</div>
+          <div class="pc-name">{{ p.name }}</div>
+          <div class="pc-price">TSh {{ p.selling_price|floatformat:0 }}</div>
+          <div class="pc-stock">{{ item.stock }} in stock</div>
+          <div class="vchips">
+            {% for v in p.variants.all %}{% if v.is_active %}
+            <div class="vchip"
+                 data-pid="{{ p.id }}"
+                 data-name="{{ p.name|force_escape }}"
+                 data-price="{{ v.effective_selling_price }}"
+                 data-vid="{{ v.id }}"
+                 data-vlabel="{% for a in v.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}">
+              {% for a in v.attributes.all %}{{ a.value }}{% if not forloop.last %}/{% endif %}{% endfor %}
+            </div>
+            {% endif %}{% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="pcard {% if item.stock == 0 %}oos{% endif %}"
+             data-pid="{{ p.id }}"
+             data-name="{{ p.name|force_escape }}"
+             data-price="{{ p.selling_price }}"
+             data-can-sell="{% if item.stock > 0 %}yes{% else %}no{% endif %}">
+          <div class="pc-img">📦</div>
+          <div class="pc-name">{{ p.name }}</div>
+          <div class="pc-price">TSh {{ p.selling_price|floatformat:0 }}</div>
+          <div class="pc-stock {% if item.stock == 0 %}low{% endif %}">
+            {% if item.stock == 0 %}Out of stock{% else %}{{ item.stock }} in stock{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% empty %}
+        <div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b6b80;font-size:13px">No products found.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Order panel -->
+  <div class="cart-panel">
+    <div class="cart-header">🏍️ Delivery Order</div>
+
+    <!-- Driver + delivery cost -->
+    <div class="cart-section">
+      <label>Driver *</label>
+      <select id="del-driver">
+        <option value="">— Select driver —</option>
+        {% for d in drivers %}
+          <option value="{{ d.id }}">{{ d.name }}{% if d.motorcycle %} ({{ d.motorcycle.plate_number }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="cart-section">
+      <label>Delivery Cost (TSh)</label>
+      <input type="number" id="del-cost" min="0" step="1" placeholder="0" oninput="delUpdateTotals()">
+    </div>
+
+    <!-- Stop tabs -->
+    <div class="stop-tabs" id="stop-tabs">
+      <div class="stop-tab active" data-idx="0" onclick="delSwitchStop(0)">Stop 1</div>
+      <div class="stop-tab add-stop" onclick="delAddStop()">+ Stop</div>
+    </div>
+
+    <!-- Active stop hint -->
+    <div class="active-stop-hint" id="active-stop-hint">Adding products → Stop 1</div>
+
+    <!-- Stop body (customer info + items) -->
+    <div class="stop-body">
+      <div class="stop-fields" id="stop-fields">
+        <!-- rendered by JS -->
+      </div>
+      <div class="stop-items" id="stop-items-list">
+        <div style="padding:16px;text-align:center;color:#6b6b80;font-size:12px">Tap a product to add it to Stop 1</div>
+      </div>
+    </div>
+
+    <!-- Totals -->
+    <div class="cart-footer">
+      <div class="ctrow"><span>Stop 1 subtotal</span><span id="del-active-subtotal">TSh 0</span></div>
+      <div class="ctrow"><span>All stops subtotal</span><span id="del-subtotal">TSh 0</span></div>
+      <div class="ctrow"><span>Delivery cost</span><span id="del-cost-display">TSh 0</span></div>
+      <div class="ctrow grand"><span>Total</span><span id="del-total">TSh 0</span></div>
+      <button class="del-save-btn" id="del-save-btn" onclick="delSaveOrder()" disabled>Save Delivery Order</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PRODUCT_TIERS = {{ product_tiers_json|safe }};
+const VARIANT_TIERS = {{ variant_tiers_json|safe }};
+const CUSTOMERS = [{% for c in customers %}{ id: '{{ c.id }}', name: '{{ c.name|escapejs }}', phone: '{{ c.phone|escapejs }}' },{% endfor %}];
+
+// ── State ─────────────────────────────────────────────────────────────────
+let activeStop = 0;
+let stops = [{ customer_id: null, customer_name: '', customer_phone: '', delivery_address: '', delivery_notes: '', items: [] }];
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function delFmt(n) { return 'TSh ' + Math.round(n).toLocaleString(); }
+
+function delTieredPrice(pid, vid, qty, basePrice) {
+  const vTiers = vid ? (VARIANT_TIERS[vid] || []) : [];
+  const pTiers = PRODUCT_TIERS[pid] || [];
+  const tiers = vTiers.length ? vTiers : pTiers;
+  const match = tiers.find(t => qty >= t.min_qty);
+  return match ? match.price : basePrice;
+}
+
+function delGetCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// ── Stops management ──────────────────────────────────────────────────────
+function delAddStop() {
+  stops.push({ customer_id: null, customer_name: '', customer_phone: '', delivery_address: '', delivery_notes: '', items: [] });
+  activeStop = stops.length - 1;
+  delRenderTabs();
+  delRenderStopBody();
+  delUpdateTotals();
+}
+
+function delSwitchStop(idx) {
+  delSaveStopFields(); // save current fields before switching
+  activeStop = idx;
+  delRenderTabs();
+  delRenderStopBody();
+}
+
+function delSaveStopFields() {
+  const s = stops[activeStop];
+  const custSel = document.getElementById('sf-customer');
+  const nameEl  = document.getElementById('sf-name');
+  const phoneEl = document.getElementById('sf-phone');
+  const addrEl  = document.getElementById('sf-address');
+  const notesEl = document.getElementById('sf-notes');
+  if (custSel)  s.customer_id   = custSel.value || null;
+  if (nameEl)   s.customer_name  = nameEl.value.trim();
+  if (phoneEl)  s.customer_phone = phoneEl.value.trim();
+  if (addrEl)   s.delivery_address = addrEl.value.trim();
+  if (notesEl)  s.delivery_notes   = notesEl.value.trim();
+}
+
+function delRenderTabs() {
+  const container = document.getElementById('stop-tabs');
+  let html = stops.map((_, i) => {
+    const hasItems = stops[i].items.length > 0;
+    return `<div class="stop-tab${i === activeStop ? ' active' : ''}" onclick="delSwitchStop(${i})">` +
+      `Stop ${i + 1}${hasItems ? ' ●' : ''}` +
+      (stops.length > 1 ? ` <span onclick="event.stopPropagation();delRemoveStop(${i})" style="margin-left:3px;color:#9ca3af;font-size:10px">×</span>` : '') +
+    `</div>`;
+  }).join('');
+  html += `<div class="stop-tab add-stop" onclick="delAddStop()">+ Stop</div>`;
+  container.innerHTML = html;
+
+  const hint = document.getElementById('active-stop-hint');
+  if (hint) hint.textContent = `Adding products → Stop ${activeStop + 1}`;
+}
+
+function delRemoveStop(idx) {
+  if (stops.length === 1) return;
+  stops.splice(idx, 1);
+  if (activeStop >= stops.length) activeStop = stops.length - 1;
+  delRenderTabs();
+  delRenderStopBody();
+  delUpdateTotals();
+}
+
+function delRenderStopBody() {
+  const s = stops[activeStop];
+
+  // Customer fields
+  const custOptions = CUSTOMERS.map(c =>
+    `<option value="${c.id}"${s.customer_id == c.id ? ' selected' : ''}>${c.name} — ${c.phone}</option>`
+  ).join('');
+
+  document.getElementById('stop-fields').innerHTML =
+    `<label>Registered Customer</label>` +
+    `<select id="sf-customer" onchange="delOnCustomerChange(this.value)">` +
+      `<option value="">— Walk-in / manual —</option>${custOptions}` +
+    `</select>` +
+    `<div id="sf-manual" style="${s.customer_id ? 'display:none' : ''}">` +
+      `<label style="margin-top:5px">Customer Name</label>` +
+      `<input id="sf-name" type="text" placeholder="e.g. John Doe" value="${escHtml(s.customer_name)}">` +
+      `<label>Phone</label>` +
+      `<input id="sf-phone" type="text" placeholder="e.g. 0712 345 678" value="${escHtml(s.customer_phone)}">` +
+    `</div>` +
+    `<label style="margin-top:5px">Delivery Address</label>` +
+    `<input id="sf-address" type="text" placeholder="Street, area, landmark..." value="${escHtml(s.delivery_address)}">` +
+    `<label>Notes</label>` +
+    `<textarea id="sf-notes" placeholder="Special instructions...">${escHtml(s.delivery_notes)}</textarea>`;
+
+  // Items
+  delRenderStopItems();
+}
+
+function delOnCustomerChange(val) {
+  const manual = document.getElementById('sf-manual');
+  if (manual) manual.style.display = val ? 'none' : '';
+  stops[activeStop].customer_id = val || null;
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Cart logic ────────────────────────────────────────────────────────────
+function delAddToCart(pid, name, price, vid, vlabel) {
+  const key = vid ? pid + '-' + vid : String(pid);
+  const displayName = vlabel ? name + ' - ' + vlabel : name;
+  const items = stops[activeStop].items;
+  const existing = items.find(i => i.key === key);
+  if (existing) {
+    existing.qty++;
+    existing.price = delTieredPrice(pid, vid, existing.qty, existing.base_price);
+  } else {
+    const bp = parseFloat(price);
+    items.push({ key, pid, vid: vid || null, name: displayName, base_price: bp, price: bp, qty: 1 });
+  }
+  delRenderTabs(); // update dot indicator
+  delRenderStopItems();
+  delUpdateTotals();
+  // Flash card
+  const card = document.querySelector('[data-pid="' + pid + '"]');
+  if (card) { card.style.borderColor = '#6146c1'; setTimeout(() => card.style.borderColor = '', 400); }
+}
+
+function delChangeQty(key, delta) {
+  const items = stops[activeStop].items;
+  const idx = items.findIndex(i => i.key === key);
+  if (idx === -1) return;
+  items[idx].qty += delta;
+  if (items[idx].qty <= 0) {
+    items.splice(idx, 1);
+  } else {
+    const item = items[idx];
+    item.price = delTieredPrice(item.pid, item.vid, item.qty, item.base_price);
+  }
+  delRenderTabs();
+  delRenderStopItems();
+  delUpdateTotals();
+}
+
+function delRenderStopItems() {
+  const el = document.getElementById('stop-items-list');
+  const items = stops[activeStop].items;
+
+  if (!items.length) {
+    el.innerHTML = `<div style="padding:16px;text-align:center;color:#6b6b80;font-size:12px">Tap a product to add it to Stop ${activeStop + 1}</div>`;
+    return;
+  }
+
+  el.innerHTML = items.map(item => {
+    const lt = item.price * item.qty;
+    const parts = item.name.split(' - ');
+    const nameHtml = parts.length > 1
+      ? parts[0] + '<div class="ci-variant">' + parts.slice(1).join(' - ') + '</div>'
+      : item.name;
+    const ek = item.key.replace(/'/g, "\\'");
+    return `<div class="cart-item">` +
+      `<div class="cart-item-name">${nameHtml}</div>` +
+      `<div class="qty-ctrl">` +
+        `<div class="qty-btn" onclick="delChangeQty('${ek}',-1)">−</div>` +
+        `<div class="qty-num">${item.qty}</div>` +
+        `<div class="qty-btn" onclick="delChangeQty('${ek}',1)">+</div>` +
+      `</div>` +
+      `<div class="ci-price">${delFmt(lt)}</div>` +
+    `</div>`;
+  }).join('');
+}
+
+function delUpdateTotals() {
+  const costEl = document.getElementById('del-cost');
+  const deliveryCost = parseFloat(costEl ? costEl.value : 0) || 0;
+
+  let allSubtotal = 0;
+  stops.forEach(s => {
+    s.items.forEach(i => allSubtotal += i.price * i.qty);
+  });
+
+  const activeSubtotal = stops[activeStop].items.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const total = allSubtotal + deliveryCost;
+
+  const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  s('del-active-subtotal', delFmt(activeSubtotal));
+  s('del-subtotal', delFmt(allSubtotal));
+  s('del-cost-display', delFmt(deliveryCost));
+  s('del-total', delFmt(total));
+
+  // Update stop label in footer
+  const rowEl = document.querySelector('.ctrow:first-child span:first-child');
+  if (rowEl) rowEl.textContent = `Stop ${activeStop + 1} subtotal`;
+
+  const saveBtn = document.getElementById('del-save-btn');
+  const hasItems = stops.some(s => s.items.length > 0);
+  if (saveBtn) saveBtn.disabled = !hasItems;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────
+function delSaveOrder() {
+  delSaveStopFields(); // capture latest field values
+
+  const driverId = document.getElementById('del-driver').value;
+  if (!driverId) { alert('Please select a driver.'); return; }
+
+  const hasItems = stops.some(s => s.items.length > 0);
+  if (!hasItems) { alert('Add at least one product to a stop.'); return; }
+
+  const costEl = document.getElementById('del-cost');
+  const deliveryCost = parseFloat(costEl ? costEl.value : 0) || 0;
+
+  const btn = document.getElementById('del-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const payload = {
+    driver_id: parseInt(driverId),
+    delivery_cost: deliveryCost,
+    stops: stops.filter(s => s.items.length > 0).map(s => ({
+      customer_id: s.customer_id || null,
+      customer_name: s.customer_name,
+      customer_phone: s.customer_phone,
+      delivery_address: s.delivery_address,
+      delivery_notes: s.delivery_notes,
+      items: s.items.map(i => ({
+        product_id: i.pid,
+        variant_id: i.vid || null,
+        quantity: i.qty,
+      })),
+    })),
+  };
+
+  fetch('{% url "delivery:save_order" %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': delGetCsrf() },
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      window.location.href = '{% url "delivery:board" %}';
+    } else {
+      alert(data.error || 'Error saving order.');
+      btn.disabled = false;
+      btn.textContent = 'Save Delivery Order';
+    }
+  })
+  .catch(() => {
+    alert('Network error. Check connection.');
+    btn.disabled = false;
+    btn.textContent = 'Save Delivery Order';
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  delRenderTabs();
+  delRenderStopBody();
+  delUpdateTotals();
+
+  document.querySelectorAll('#product-container .pcard[data-pid]').forEach(card => {
+    if (card.dataset.canSell === 'no') return;
+    card.addEventListener('click', function (e) {
+      if (e.target.classList.contains('vchip')) return;
+      delAddToCart(this.dataset.pid, this.dataset.name, this.dataset.price, null, null);
+    });
+  });
+
+  document.querySelectorAll('#product-container .vchip[data-pid]').forEach(chip => {
+    chip.addEventListener('click', function (e) {
+      e.stopPropagation();
+      delAddToCart(this.dataset.pid, this.dataset.name, this.dataset.price,
+                   this.dataset.vid, this.dataset.vlabel);
+    });
+  });
+});
+</script>
+{% endblock %}

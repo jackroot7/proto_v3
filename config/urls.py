@@ -18,5 +18,6 @@ urlpatterns = [
     path('whatsapp/', include('whatsapp.urls')),
     path('settings/', include('settings_app.urls')),
     path('units/', include('units.urls')),
+    path('delivery/', include('delivery.urls')),
     path('i18n/', include('django.conf.urls.i18n')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
